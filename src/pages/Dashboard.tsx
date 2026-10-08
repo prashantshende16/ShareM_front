@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { ConfidenceMeter } from '../components/ConfidenceMeter';
+import { LiveMarketTicker } from '../components/LiveMarketTicker';
 
 export const Dashboard: React.FC = () => {
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -29,6 +30,9 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-8">
+      {/* Live Global Ticker & Sector Drivers */}
+      <LiveMarketTicker />
+
       {/* Welcome Banner */}
       <div className="rounded-3xl bg-gradient-to-r from-blue-950/60 via-slate-900 to-indigo-950/50 border border-blue-900/30 p-8 relative overflow-hidden shadow-2xl">
         <div className="max-w-2xl space-y-3 relative z-10">

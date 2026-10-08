@@ -5,7 +5,9 @@ import {
   Screenshot,
   WatchlistItem,
   SettingsStatus,
-  CompareData
+  CompareData,
+  LiveMarketOverviewResponse,
+  LiveAnalysisRequest
 } from '../types';
 
 const API_BASE = '/api/v1';
@@ -164,6 +166,26 @@ export const api = {
     const res = await fetch(`${API_BASE}/settings/test-connection`, {
       method: 'POST',
     });
+    return res.json();
+  },
+
+  // Live Market (Phase 2)
+  async getLiveOverview(): Promise<LiveMarketOverviewResponse> {
+    const res = await fetch(`${API_BASE}/market/overview`);
+    if (!res.ok) throw new Error('Failed to fetch live market overview');
+    return res.json();
+  },
+
+  async analyzeLiveMarket(data: LiveAnalysisRequest): Promise<{ status: string; analysis_id: number; message: string }> {
+    const res = await fetch(`${API_BASE}/market/analyze-live`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to start live market analysis');
+    }
     return res.json();
   }
 };

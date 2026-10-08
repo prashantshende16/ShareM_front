@@ -209,3 +209,47 @@ export interface CompareData {
     trend_comparison: string;
   };
 }
+
+export interface LiveIndexOverview {
+  name: string;
+  symbol: string;
+  region: string;
+  price: number;
+  change: number;
+  change_pct: number;
+  sentiment: 'bullish' | 'bearish' | 'neutral';
+}
+
+export interface HeavyweightStock {
+  name: string;
+  symbol: string;
+  weight: string;
+  sector: string;
+  price: number;
+  change: number;
+  change_pct: number;
+  rsi_14?: number | null;
+}
+
+export interface MarketIncident {
+  title: string;
+  date: string;
+  url: string;
+}
+
+export interface LiveMarketOverviewResponse {
+  status: string;
+  global_sentiment: string;
+  indices: LiveIndexOverview[];
+  heavyweights: HeavyweightStock[];
+  recent_incidents: MarketIncident[];
+}
+
+export interface LiveAnalysisRequest {
+  symbol: string;
+  market: string;
+  instrument_type: string;
+  notes?: string;
+  ai_provider?: string;
+}
+
