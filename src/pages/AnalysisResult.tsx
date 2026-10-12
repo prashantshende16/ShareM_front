@@ -25,6 +25,7 @@ import { ConfidenceMeter } from '../components/ConfidenceMeter';
 import { ScenarioCard } from '../components/ScenarioCard';
 import { SupportResistance } from '../components/SupportResistance';
 import { ScreenshotOverlayViewer } from '../components/ScreenshotOverlayViewer';
+import { OptionSignalCard } from '../components/OptionSignalCard';
 
 export const AnalysisResult: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -156,6 +157,13 @@ export const AnalysisResult: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* 5-Minute Intraday Option Indicator Decision Component */}
+      <OptionSignalCard
+        symbol={analysis.symbol}
+        initialSignal={res.trade_setup?.option_indicator_5m}
+        allowSymbolSelect={false}
+      />
 
       {/* Scenario Cards Grid (Section 17) */}
       <div>

@@ -16,6 +16,7 @@ import {
 import { api } from '../services/api';
 import { ConfidenceMeter } from '../components/ConfidenceMeter';
 import { LiveMarketTicker } from '../components/LiveMarketTicker';
+import { OptionSignalCard } from '../components/OptionSignalCard';
 
 export const Dashboard: React.FC = () => {
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -30,6 +31,9 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-8">
+      {/* 5-Min Intraday Option Indicator Decision Card */}
+      <OptionSignalCard symbol="NIFTY 50" allowSymbolSelect={true} />
+
       {/* Live Global Ticker & Sector Drivers */}
       <LiveMarketTicker />
 

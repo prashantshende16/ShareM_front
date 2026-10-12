@@ -7,7 +7,8 @@ import {
   SettingsStatus,
   CompareData,
   LiveMarketOverviewResponse,
-  LiveAnalysisRequest
+  LiveAnalysisRequest,
+  OptionIndicator5m
 } from '../types';
 
 const API_BASE = '/api/v1';
@@ -186,6 +187,17 @@ export const api = {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || 'Failed to start live market analysis');
     }
+    return res.json();
+  },
+
+  async getOptionIndicatorSignal(symbol = 'NIFTY 50'): Promise<{
+    status: string;
+    symbol: string;
+    yf_symbol: string;
+    signal: OptionIndicator5m;
+  }> {
+    const res = await fetch(`${API_BASE}/market/option-signal?symbol=${encodeURIComponent(symbol)}`);
+    if (!res.ok) throw new Error('Failed to fetch 5-min option indicator signal');
     return res.json();
   }
 };

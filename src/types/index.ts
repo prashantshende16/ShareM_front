@@ -59,6 +59,33 @@ export interface MultiTimeframeSynthesis {
   long_term?: string;
 }
 
+export interface OptionIndicator5m {
+  decision: string;
+  direction: 'CALL' | 'PUT' | 'SIDEWAYS' | 'NEUTRAL';
+  confidence: number;
+  call_score: number;
+  put_score: number;
+  strike_suggestion: string;
+  entry_price: number;
+  stop_loss: number;
+  target_1: number;
+  target_2: number;
+  risk_reward: string;
+  timeframe: string;
+  expected_holding_time: string;
+  patterns_detected: string[];
+  indicators: {
+    ema_9?: number;
+    ema_21?: number;
+    rsi_14?: number;
+    vwap?: number;
+    trend_ribbon?: string;
+    vwap_position?: string;
+  };
+  signals_breakdown: string[];
+  summary: string;
+}
+
 export interface TradeSetup {
   has_setup: boolean;
   direction: 'CALL' | 'PUT' | 'FUTURE' | 'NO TRADE';
@@ -68,6 +95,7 @@ export interface TradeSetup {
   target_2?: string;
   risk_reward?: string;
   reason?: string;
+  option_indicator_5m?: OptionIndicator5m;
 }
 
 export interface RiskAnalysis {
