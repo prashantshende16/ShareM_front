@@ -1,9 +1,19 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Activity, PlusCircle, Settings, ShieldAlert, TrendingUp } from 'lucide-react';
+import { TrendingUp, PlusCircle, Settings } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../services/api';
 
 export const Navbar: React.FC = () => {
   const location = useLocation();
+
+  const { data: settings } = useQuery({
+    queryKey: ['settings-status'],
+    queryFn: () => api.getSettings(),
+    staleTime: 60000,
+  });
+
+  const isConnected = settings?.market_data_connected ?? true;
 
   return (
     <header className="h-16 bg-[#0f172a] border-b border-gray-800 px-6 flex items-center justify-between sticky top-0 z-40">
@@ -25,11 +35,13 @@ export const Navbar: React.FC = () => {
       </div>
 
       <div className="flex items-center space-x-4">
-        {/* Market Data status pill in accordance with Section 30 */}
+        {/* Dynamic Market Data status pill */}
         <div className="hidden md:flex items-center space-x-2 bg-gray-900/80 px-3 py-1.5 rounded-full border border-gray-800 text-xs">
-          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+          <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`}></span>
           <span className="text-gray-400">Market Data:</span>
-          <span className="text-amber-400 font-medium">Not Connected (Vision Mode)</span>
+          <span className={`font-medium ${isConnected ? 'text-emerald-400' : 'text-amber-400'}`}>
+            {isConnected ? 'Live Feed Connected' : 'Not Connected (Vision Mode)'}
+          </span>
         </div>
 
         <Link
