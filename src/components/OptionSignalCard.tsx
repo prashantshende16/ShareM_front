@@ -229,11 +229,19 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-gray-800/80 flex items-center justify-between">
-            <span className="text-xs text-gray-400 font-medium">Recommended Strike:</span>
-            <span className="text-sm font-mono font-bold text-gray-100 bg-gray-800/90 px-2.5 py-1 rounded-lg border border-gray-700">
-              {signal?.strike_suggestion || 'ATM Strike'}
-            </span>
+          <div className="mt-4 pt-3 border-t border-gray-800/80 flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-400 font-medium">Recommended Strike:</span>
+              <span className="text-sm font-mono font-bold text-gray-100 bg-gray-800/90 px-2.5 py-1 rounded-lg border border-gray-700">
+                {signal?.strike_suggestion || 'ATM Strike'}
+              </span>
+            </div>
+            {signal?.active_expiry && (
+              <div className="flex items-center justify-between text-[11px] text-gray-400">
+                <span>Active Expiry:</span>
+                <span className="font-mono text-cyan-300 font-semibold">{signal.active_expiry}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -271,36 +279,62 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
           </div>
         </div>
 
-        {/* Right: Entry, SL, Target Setup */}
+        {/* Right: Dual Setup (Option Premium in Rs + Underlying Index Spot) */}
         <div className="bg-[#1e293b]/70 border border-gray-800 rounded-2xl p-4 flex flex-col justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400 flex items-center gap-1">
-                <Target className="w-3.5 h-3.5 text-blue-400" />
-                Current Base (CMP):
-              </span>
-              <strong className="font-mono text-gray-100">{signal?.entry_price || '0'}</strong>
+          <div>
+            {/* Tab 1: Option Premium (What user buys on broker) */}
+            <div className="bg-blue-950/40 p-2.5 rounded-xl border border-blue-500/30 mb-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-300">
+                  Option Contract Price (Broker Buy)
+                </span>
+                <span className="text-[10px] font-mono text-cyan-400">Cash ₹</span>
+              </div>
+              <div className="space-y-1 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-300 font-medium">Buy Premium:</span>
+                  <strong className="font-mono text-emerald-400 text-sm">
+                    {signal?.option_premium?.buy_range || `₹${Math.round(signal?.entry_price ? signal.entry_price * 0.0055 : 120)}`}
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Option SL:</span>
+                  <strong className="font-mono text-rose-400">
+                    {signal?.option_premium?.stop_loss || '₹95.0'}
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Option Target 1:</span>
+                  <strong className="font-mono text-emerald-300">
+                    {signal?.option_premium?.target_1 || '₹165.0'}
+                  </strong>
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400 flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-rose-400" />
-                Stop Loss (SL):
-              </span>
-              <strong className="font-mono text-rose-400">{signal?.stop_loss || '0'}</strong>
-            </div>
-
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400 flex items-center gap-1">
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                Target 1 / 2:
-              </span>
-              <strong className="font-mono text-emerald-400">{signal?.target_1} / {signal?.target_2}</strong>
+            {/* Tab 2: Underlying Spot Index Chart Levels */}
+            <div className="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800 space-y-1 text-[11px]">
+              <div className="flex items-center justify-between text-gray-400 mb-1">
+                <span className="text-[10px] uppercase font-bold text-gray-400">Underlying Index Spot (Chart Trigger)</span>
+                <span className="font-mono text-gray-500">Points</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Spot CMP:</span>
+                <span className="font-mono text-gray-200">{signal?.entry_price || '0'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Spot SL:</span>
+                <span className="font-mono text-rose-400">{signal?.stop_loss || '0'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Spot Target:</span>
+                <span className="font-mono text-emerald-400">{signal?.target_1 || '0'}</span>
+              </div>
             </div>
           </div>
 
-          <div className="mt-2 pt-2 border-t border-gray-800 flex items-center justify-between text-[11px]">
-            <span className="text-gray-400">Risk/Reward:</span>
+          <div className="mt-2.5 pt-2 border-t border-gray-800 flex items-center justify-between text-[11px]">
+            <span className="text-gray-400 font-medium">Risk/Reward:</span>
             <span className="font-mono font-bold text-amber-400">{signal?.risk_reward || '1 : 2.0'}</span>
           </div>
         </div>

@@ -66,6 +66,24 @@ export interface OptionIndicator5m {
   call_score: number;
   put_score: number;
   strike_suggestion: string;
+  active_expiry?: string;
+  option_premium?: {
+    buy_range: string;
+    stop_loss: string;
+    target_1: string;
+    target_2: string;
+    risk_points: string;
+    reward_points: string;
+  };
+  index_spot?: {
+    cmp: number;
+    entry_zone: string;
+    stop_loss: number;
+    target_1: number;
+    target_2: number;
+    risk_points: number;
+    target_points: number;
+  };
   entry_price: number;
   stop_loss: number;
   target_1: number;
