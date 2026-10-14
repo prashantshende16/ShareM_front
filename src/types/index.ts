@@ -73,6 +73,10 @@ export interface OptionIndicator5m {
   risk_reward: string;
   timeframe: string;
   expected_holding_time: string;
+  generated_at?: string;
+  generated_at_iso?: string;
+  valid_until?: string;
+  last_candle_time?: string;
   patterns_detected: string[];
   indicators: {
     ema_9?: number;

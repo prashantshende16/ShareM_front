@@ -11,7 +11,9 @@ import {
   Layers,
   Activity,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Timer,
+  CalendarCheck
 } from 'lucide-react';
 import { OptionIndicator5m } from '../types';
 import { api } from '../services/api';
@@ -30,6 +32,7 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
   const [currentSymbol, setCurrentSymbol] = useState(symbol);
   const [signal, setSignal] = useState<OptionIndicator5m | null>(initialSignal || null);
   const [loading, setLoading] = useState(!initialSignal);
+  const [elapsedMinutes, setElapsedMinutes] = useState(0);
 
   const fetchSignal = async (sym: string) => {
     try {
@@ -51,9 +54,31 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
     }
   }, [currentSymbol, initialSignal]);
 
+  // Update live elapsed time every 30 seconds
+  useEffect(() => {
+    const updateElapsed = () => {
+      if (!signal?.generated_at_iso) {
+        setElapsedMinutes(0);
+        return;
+      }
+      const genTime = new Date(signal.generated_at_iso).getTime();
+      const diffMs = Date.now() - genTime;
+      const mins = Math.max(0, Math.floor(diffMs / 60000));
+      setElapsedMinutes(mins);
+    };
+
+    updateElapsed();
+    const interval = setInterval(updateElapsed, 30000);
+    return () => clearInterval(interval);
+  }, [signal]);
+
   const isCall = signal?.direction === 'CALL';
   const isPut = signal?.direction === 'PUT';
   const isWait = !isCall && !isPut;
+
+  // Has signal expired past 30 minutes?
+  const isExpired = elapsedMinutes >= 30;
+  const isExpiringSoon = elapsedMinutes >= 20 && elapsedMinutes < 30;
 
   return (
     <div className={`rounded-3xl border p-6 shadow-2xl relative overflow-hidden transition-all ${
@@ -121,11 +146,64 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
           <button
             onClick={() => fetchSignal(currentSymbol)}
             disabled={loading}
-            className="p-2 rounded-xl bg-gray-800/80 hover:bg-gray-700 text-gray-300 transition-colors border border-gray-700"
+            className="p-2 rounded-xl bg-gray-800/80 hover:bg-gray-700 text-gray-300 transition-colors border border-gray-700 flex items-center gap-1.5 text-xs font-semibold"
             title="Recalculate 5-min Option Signal"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-400' : ''}`} />
+            <span className="hidden sm:inline">Refresh Signal</span>
           </button>
+        </div>
+      </div>
+
+      {/* PROMINENT TIMEFRAME & EXECUTION TIMESTAMP BANNER */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5 p-3.5 rounded-2xl bg-gray-900/80 border border-gray-800/90 text-xs">
+        {/* Analyzed At Time */}
+        <div className="flex items-center gap-2.5 px-2">
+          <Clock className="w-4 h-4 text-cyan-400 shrink-0" />
+          <div>
+            <span className="text-[10px] text-gray-400 block uppercase font-mono">Analyzed At (Hit Time)</span>
+            <strong className="text-sm font-mono text-cyan-200">
+              {signal?.generated_at || 'Just now'}
+            </strong>
+          </div>
+        </div>
+
+        {/* Validity Window (15 to 30 mins) */}
+        <div className="flex items-center gap-2.5 px-2 border-t sm:border-t-0 sm:border-l border-gray-800 pt-2 sm:pt-0">
+          <CalendarCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+          <div>
+            <span className="text-[10px] text-gray-400 block uppercase font-mono">Valid Window (15 - 30m)</span>
+            <strong className="text-sm font-mono text-emerald-300">
+              Until {signal?.valid_until || 'Next 30 Mins'}
+            </strong>
+          </div>
+        </div>
+
+        {/* Elapsed / Freshness Status */}
+        <div className="flex items-center gap-2.5 px-2 border-t sm:border-t-0 sm:border-l border-gray-800 pt-2 sm:pt-0 justify-between">
+          <div className="flex items-center gap-2.5">
+            <Timer className={`w-4 h-4 shrink-0 ${
+              isExpired ? 'text-rose-400' : isExpiringSoon ? 'text-amber-400' : 'text-blue-400'
+            }`} />
+            <div>
+              <span className="text-[10px] text-gray-400 block uppercase font-mono">Signal Age</span>
+              <strong className={`text-sm font-mono ${
+                isExpired ? 'text-rose-400' : isExpiringSoon ? 'text-amber-400' : 'text-blue-300'
+              }`}>
+                {elapsedMinutes === 0 ? '< 1 minute ago' : `${elapsedMinutes} min(s) ago`}
+              </strong>
+            </div>
+          </div>
+
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase font-mono border ${
+            isExpired
+              ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+              : isExpiringSoon
+              ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+              : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+          }`}>
+            {isExpired ? 'Needs Refresh' : isExpiringSoon ? 'Expiring' : 'Live / Active'}
+          </span>
         </div>
       </div>
 
@@ -189,7 +267,7 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
 
           <div className="mt-3 pt-3 border-t border-gray-800 text-[11px] text-gray-400 flex items-center justify-between">
             <span>Duration: <strong className="text-gray-200">5-Min Candle</strong></span>
-            <span>Holding Time: <strong className="text-gray-200">{signal?.expected_holding_time || '15-30 Mins'}</strong></span>
+            <span>Holding Time: <strong className="text-gray-200">{signal?.expected_holding_time || '15 to 30 Minutes'}</strong></span>
           </div>
         </div>
 
@@ -287,4 +365,3 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
     </div>
   );
 };
-
