@@ -30,8 +30,8 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
   allowSymbolSelect = false
 }) => {
   const [currentSymbol, setCurrentSymbol] = useState(symbol);
-  const [expiryType, setExpiryType] = useState<'current' | 'next'>(
-    initialSignal?.active_expiry_type || 'current'
+  const [expiryType, setExpiryType] = useState<string>(
+    initialSignal?.active_expiry || initialSignal?.active_expiry_type || 'current'
   );
   const [signal, setSignal] = useState<OptionIndicator5m | null>(initialSignal || null);
   const [loading, setLoading] = useState(!initialSignal);
@@ -42,7 +42,9 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
       setLoading(true);
       const res = await api.getOptionIndicatorSignal(sym, expType);
       setSignal(res.signal);
-      if (res.signal.active_expiry_type) {
+      if (res.signal.active_expiry) {
+        setExpiryType(res.signal.active_expiry);
+      } else if (res.signal.active_expiry_type) {
         setExpiryType(res.signal.active_expiry_type);
       }
     } catch (err) {
@@ -52,7 +54,7 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
     }
   };
 
-  const handleExpiryChange = (type: 'current' | 'next') => {
+  const handleExpiryChange = (type: string) => {
     setExpiryType(type);
     fetchSignal(currentSymbol, type);
   };
@@ -250,41 +252,71 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
                 {signal?.strike_suggestion || 'ATM Strike'}
               </span>
             </div>
-            {/* Interactive Expiry Switcher */}
+            {/* Interactive Multi-Expiry Switcher (All Indian Market Expiries) */}
             <div className="mt-2 pt-2 border-t border-gray-800/60">
               <div className="flex items-center justify-between mb-1.5 text-[11px] text-gray-400">
                 <span className="font-semibold text-gray-300">Contract Expiry:</span>
                 <span className="font-mono text-cyan-300 font-bold">
-                  {expiryType === 'current'
-                    ? (signal?.current_expiry || signal?.active_expiry)
-                    : (signal?.next_expiry || 'Next Week')}
+                  {signal?.active_expiry || expiryType}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-1.5 p-1 bg-gray-900/90 rounded-xl border border-gray-700/80">
-                <button
-                  type="button"
-                  onClick={() => handleExpiryChange('current')}
-                  className={`px-2 py-1 text-[10px] font-bold rounded-lg transition-all text-center flex flex-col items-center ${
-                    expiryType === 'current'
-                      ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400'
-                      : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
-                  }`}
-                >
-                  <span>{signal?.is_today_expiry ? 'Today (0DTE)' : 'Current Week'}</span>
-                  <span className="text-[9px] opacity-80">{signal?.current_expiry || signal?.active_expiry || 'Current'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleExpiryChange('next')}
-                  className={`px-2 py-1 text-[10px] font-bold rounded-lg transition-all text-center flex flex-col items-center ${
-                    expiryType === 'next'
-                      ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400'
-                      : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
-                  }`}
-                >
-                  <span>Next Week</span>
-                  <span className="text-[9px] opacity-80">{signal?.next_expiry || 'Next Expiry'}</span>
-                </button>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 p-1 bg-gray-900/90 rounded-xl border border-gray-700/80 max-h-40 overflow-y-auto">
+                {signal?.available_expiries && signal.available_expiries.length > 0 ? (
+                  signal.available_expiries.map((exp) => {
+                    const isSelected =
+                      expiryType === exp.date ||
+                      expiryType === exp.id ||
+                      signal?.active_expiry === exp.date ||
+                      (expiryType === 'current' && exp.dte === 0);
+                    const is16Oct = exp.date.includes('16 Oct');
+
+                    return (
+                      <button
+                        key={exp.id || exp.date}
+                        type="button"
+                        onClick={() => handleExpiryChange(exp.date)}
+                        className={`px-2 py-1.5 text-[10px] font-bold rounded-lg transition-all text-center flex flex-col items-center justify-center ${
+                          isSelected
+                            ? is16Oct
+                              ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-sm ring-1 ring-amber-300'
+                              : 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400'
+                            : is16Oct
+                            ? 'bg-amber-500/15 text-amber-300 border border-amber-500/40 hover:bg-amber-500/25'
+                            : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                        }`}
+                      >
+                        <span className="flex items-center gap-1">
+                          {exp.date.split(' ').slice(0, 2).join(' ')}
+                          {is16Oct && <span className="text-[8px] bg-amber-400/30 text-amber-200 px-1 rounded font-mono">16 OCT</span>}
+                        </span>
+                        <span className="text-[9px] opacity-80 font-mono">
+                          {exp.dte === 0 ? '0DTE' : exp.tag ? exp.tag : `${exp.dte}d`}
+                        </span>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleExpiryChange('current')}
+                      className={`px-2 py-1 text-[10px] font-bold rounded-lg ${
+                        expiryType === 'current' ? 'bg-emerald-600 text-white' : 'text-gray-400'
+                      }`}
+                    >
+                      Today / Current
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExpiryChange('16 Oct 2026')}
+                      className={`px-2 py-1 text-[10px] font-bold rounded-lg ${
+                        expiryType.includes('16') ? 'bg-amber-600 text-white' : 'text-gray-400'
+                      }`}
+                    >
+                      16 Oct 2026
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
