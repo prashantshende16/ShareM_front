@@ -190,13 +190,14 @@ export const api = {
     return res.json();
   },
 
-  async getOptionIndicatorSignal(symbol = 'NIFTY 50'): Promise<{
+  async getOptionIndicatorSignal(symbol = 'NIFTY 50', expiryType = 'current'): Promise<{
     status: string;
     symbol: string;
     yf_symbol: string;
+    expiry_type?: string;
     signal: OptionIndicator5m;
   }> {
-    const res = await fetch(`${API_BASE}/market/option-signal?symbol=${encodeURIComponent(symbol)}`);
+    const res = await fetch(`${API_BASE}/market/option-signal?symbol=${encodeURIComponent(symbol)}&expiry_type=${encodeURIComponent(expiryType)}`);
     if (!res.ok) throw new Error('Failed to fetch 5-min option indicator signal');
     return res.json();
   }

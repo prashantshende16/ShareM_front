@@ -67,8 +67,31 @@ export interface OptionIndicator5m {
   put_score: number;
   strike_suggestion: string;
   active_expiry?: string;
+  active_expiry_type?: 'current' | 'next';
+  active_expiry_label?: string;
+  current_expiry?: string;
+  next_expiry?: string;
+  is_today_expiry?: boolean;
+  available_expiries?: Array<{ type: 'current' | 'next'; date: string; label: string }>;
+  expiries_data?: {
+    current?: {
+      expiry: string;
+      label: string;
+      buy_range: string;
+      stop_loss: string;
+      target_1: string;
+      target_2: string;
+    };
+    next?: {
+      expiry: string;
+      label: string;
+      buy_range: string;
+      stop_loss: string;
+      target_1: string;
+      target_2: string;
+    };
+  };
   option_premium?: {
-    buy_range: string;
     stop_loss: string;
     target_1: string;
     target_2: string;

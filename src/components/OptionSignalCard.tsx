@@ -30,15 +30,21 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
   allowSymbolSelect = false
 }) => {
   const [currentSymbol, setCurrentSymbol] = useState(symbol);
+  const [expiryType, setExpiryType] = useState<'current' | 'next'>(
+    initialSignal?.active_expiry_type || 'current'
+  );
   const [signal, setSignal] = useState<OptionIndicator5m | null>(initialSignal || null);
   const [loading, setLoading] = useState(!initialSignal);
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
 
-  const fetchSignal = async (sym: string) => {
+  const fetchSignal = async (sym: string, expType = expiryType) => {
     try {
       setLoading(true);
-      const res = await api.getOptionIndicatorSignal(sym);
+      const res = await api.getOptionIndicatorSignal(sym, expType);
       setSignal(res.signal);
+      if (res.signal.active_expiry_type) {
+        setExpiryType(res.signal.active_expiry_type);
+      }
     } catch (err) {
       console.error('Failed to fetch option signal:', err);
     } finally {
@@ -46,11 +52,19 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
     }
   };
 
+  const handleExpiryChange = (type: 'current' | 'next') => {
+    setExpiryType(type);
+    fetchSignal(currentSymbol, type);
+  };
+
   useEffect(() => {
     if (!initialSignal) {
-      fetchSignal(currentSymbol);
+      fetchSignal(currentSymbol, expiryType);
     } else {
       setSignal(initialSignal);
+      if (initialSignal.active_expiry_type) {
+        setExpiryType(initialSignal.active_expiry_type);
+      }
     }
   }, [currentSymbol, initialSignal]);
 
@@ -236,12 +250,43 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
                 {signal?.strike_suggestion || 'ATM Strike'}
               </span>
             </div>
-            {signal?.active_expiry && (
-              <div className="flex items-center justify-between text-[11px] text-gray-400">
-                <span>Active Expiry:</span>
-                <span className="font-mono text-cyan-300 font-semibold">{signal.active_expiry}</span>
+            {/* Interactive Expiry Switcher */}
+            <div className="mt-2 pt-2 border-t border-gray-800/60">
+              <div className="flex items-center justify-between mb-1.5 text-[11px] text-gray-400">
+                <span className="font-semibold text-gray-300">Contract Expiry:</span>
+                <span className="font-mono text-cyan-300 font-bold">
+                  {expiryType === 'current'
+                    ? (signal?.current_expiry || signal?.active_expiry)
+                    : (signal?.next_expiry || 'Next Week')}
+                </span>
               </div>
-            )}
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-gray-900/90 rounded-xl border border-gray-700/80">
+                <button
+                  type="button"
+                  onClick={() => handleExpiryChange('current')}
+                  className={`px-2 py-1 text-[10px] font-bold rounded-lg transition-all text-center flex flex-col items-center ${
+                    expiryType === 'current'
+                      ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400'
+                      : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                  }`}
+                >
+                  <span>{signal?.is_today_expiry ? 'Today (0DTE)' : 'Current Week'}</span>
+                  <span className="text-[9px] opacity-80">{signal?.current_expiry || signal?.active_expiry || 'Current'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExpiryChange('next')}
+                  className={`px-2 py-1 text-[10px] font-bold rounded-lg transition-all text-center flex flex-col items-center ${
+                    expiryType === 'next'
+                      ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400'
+                      : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
+                  }`}
+                >
+                  <span>Next Week</span>
+                  <span className="text-[9px] opacity-80">{signal?.next_expiry || 'Next Expiry'}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
