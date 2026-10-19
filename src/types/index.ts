@@ -68,6 +68,46 @@ export interface OptionExpiryItem {
   dte?: number;
 }
 
+export interface TradeExecution {
+  contract_name: string;
+  symbol: string;
+  expiry: string;
+  strike: string;
+  lot_size: number;
+  lots: number;
+  total_quantity: number;
+  current_ltp: number;
+  recommended_entry: number;
+  stop_loss: number;
+  target_1: number;
+  target_2: number;
+  risk_per_share: number;
+  reward_target_1: number;
+  reward_target_2: number;
+  capital_required: number;
+  max_risk_amount: number;
+  target_1_profit: number;
+  target_2_profit: number;
+  risk_reward_ratio: string;
+}
+
+export interface IndicatorChecklistItem {
+  id: number;
+  name: string;
+  bias: 'CALL' | 'PUT' | 'NEUTRAL';
+  status: 'CONFIRMED' | 'CONFLICT' | 'NEUTRAL';
+  value: string;
+  description?: string;
+  detail?: string;
+}
+
+export interface ConfluenceScore {
+  confirmed: number;
+  total: number;
+  percentage: number;
+  verdict: string;
+}
+
 export interface OptionIndicator5m {
   decision: string;
   direction: 'CALL' | 'PUT' | 'SIDEWAYS' | 'NEUTRAL';
@@ -82,6 +122,9 @@ export interface OptionIndicator5m {
   next_expiry?: string;
   is_today_expiry?: boolean;
   available_expiries?: OptionExpiryItem[];
+  trade_execution?: TradeExecution;
+  indicator_checklist?: IndicatorChecklistItem[];
+  confluence_score?: ConfluenceScore;
   expiries_data?: Record<string, {
     expiry: string;
     label: string;

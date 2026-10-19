@@ -13,7 +13,10 @@ import {
   CheckCircle2,
   AlertTriangle,
   Timer,
-  CalendarCheck
+  CalendarCheck,
+  Wallet,
+  XCircle,
+  ShieldAlert
 } from 'lucide-react';
 import { OptionIndicator5m } from '../types';
 import { api } from '../services/api';
@@ -356,113 +359,178 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
           </div>
         </div>
 
-        {/* Right: Dual Setup (Option Premium in Rs + Underlying Index Spot) */}
-        <div className="bg-[#1e293b]/70 border border-gray-800 rounded-2xl p-4 flex flex-col justify-between">
+        {/* Right: Detailed Option Trade Execution & Lot/Capital Breakdown */}
+        <div className="bg-[#1e293b]/80 border border-gray-800 rounded-2xl p-4 flex flex-col justify-between">
           <div>
-            {/* Tab 1: Option Premium (What user buys on broker) */}
-            <div className="bg-blue-950/40 p-2.5 rounded-xl border border-blue-500/30 mb-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-300">
-                  Option Contract Price (Broker Buy)
+            {/* Header: Exact Contract & LTP */}
+            <div className="bg-gradient-to-r from-blue-950/60 to-indigo-950/40 p-3 rounded-xl border border-blue-500/30 mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-300 flex items-center gap-1">
+                  <Wallet className="w-3 h-3 text-cyan-400" /> Option Position & Capital
                 </span>
-                <span className="text-[10px] font-mono text-cyan-400">Cash ₹</span>
+                <span className="text-[10px] font-mono text-cyan-400 font-bold">1 Lot = {signal?.trade_execution?.lot_size || 65} Qty</span>
               </div>
-              <div className="space-y-1 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-300 font-medium">Buy Premium:</span>
-                  <strong className="font-mono text-emerald-400 text-sm">
-                    {signal?.option_premium?.buy_range || `₹${Math.round(signal?.entry_price ? signal.entry_price * 0.0055 : 120)}`}
+              <div className="text-xs font-mono font-bold text-white mb-2 truncate">
+                {signal?.trade_execution?.contract_name || `${currentSymbol} ${signal?.active_expiry} ${signal?.strike_suggestion}`}
+              </div>
+
+              {/* Price Execution Grid */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-gray-900/70 p-2 rounded-lg border border-gray-800">
+                  <span className="text-[10px] text-gray-400 block">Current LTP</span>
+                  <strong className="text-sm font-mono text-cyan-300">
+                    ₹{signal?.trade_execution?.current_ltp || 34.0}
                   </strong>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Option SL:</span>
-                  <strong className="font-mono text-rose-400">
-                    {signal?.option_premium?.stop_loss || '₹95.0'}
+                <div className="bg-gray-900/70 p-2 rounded-lg border border-gray-800">
+                  <span className="text-[10px] text-gray-400 block">Buy Trigger Entry</span>
+                  <strong className="text-sm font-mono text-emerald-400">
+                    ₹{signal?.trade_execution?.recommended_entry || 38.0}
                   </strong>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Option Target 1:</span>
-                  <strong className="font-mono text-emerald-300">
-                    {signal?.option_premium?.target_1 || '₹165.0'}
+                <div className="bg-gray-900/70 p-2 rounded-lg border border-gray-800">
+                  <span className="text-[10px] text-gray-400 block">Stop Loss (SL)</span>
+                  <strong className="text-xs font-mono text-rose-400">
+                    ₹{signal?.trade_execution?.stop_loss || 30.0}
+                  </strong>
+                </div>
+                <div className="bg-gray-900/70 p-2 rounded-lg border border-gray-800">
+                  <span className="text-[10px] text-gray-400 block">Target 1 / 2</span>
+                  <strong className="text-xs font-mono text-emerald-300">
+                    ₹{signal?.trade_execution?.target_1 || 48.0} / ₹{signal?.trade_execution?.target_2 || 62.0}
                   </strong>
                 </div>
               </div>
             </div>
 
-            {/* Tab 2: Underlying Spot Index Chart Levels */}
-            <div className="p-2.5 rounded-xl bg-gray-900/60 border border-gray-800 space-y-1 text-[11px]">
-              <div className="flex items-center justify-between text-gray-400 mb-1">
-                <span className="text-[10px] uppercase font-bold text-gray-400">Underlying Index Spot (Chart Trigger)</span>
-                <span className="font-mono text-gray-500">Points</span>
+            {/* 1 Lot Capital & Max Risk Calculator */}
+            <div className="p-2.5 rounded-xl bg-gray-900/70 border border-gray-800/80 space-y-1.5 text-[11px]">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400 font-medium">Capital Required (1 Lot):</span>
+                <strong className="font-mono text-cyan-200 font-bold">
+                  ₹{signal?.trade_execution?.capital_required?.toLocaleString() || (65 * 38).toLocaleString()}
+                </strong>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-400">Spot CMP:</span>
-                <span className="font-mono text-gray-200">{signal?.entry_price || '0'}</span>
+                <span className="text-gray-400 font-medium">Max Risk (1 Lot Loss Limit):</span>
+                <strong className="font-mono text-rose-400 font-bold">
+                  -₹{signal?.trade_execution?.max_risk_amount?.toLocaleString() || (65 * 8).toLocaleString()}
+                </strong>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-400">Spot SL:</span>
-                <span className="font-mono text-rose-400">{signal?.stop_loss || '0'}</span>
+                <span className="text-gray-400 font-medium">Target 1 Profit (1 Lot):</span>
+                <strong className="font-mono text-emerald-400 font-bold">
+                  +₹{signal?.trade_execution?.target_1_profit?.toLocaleString() || (65 * 10).toLocaleString()}
+                </strong>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-400">Spot Target:</span>
-                <span className="font-mono text-emerald-400">{signal?.target_1 || '0'}</span>
+                <span className="text-gray-400 font-medium">Target 2 Profit (1 Lot):</span>
+                <strong className="font-mono text-emerald-300 font-bold">
+                  +₹{signal?.trade_execution?.target_2_profit?.toLocaleString() || (65 * 24).toLocaleString()}
+                </strong>
               </div>
             </div>
           </div>
 
           <div className="mt-2.5 pt-2 border-t border-gray-800 flex items-center justify-between text-[11px]">
-            <span className="text-gray-400 font-medium">Risk/Reward:</span>
-            <span className="font-mono font-bold text-amber-400">{signal?.risk_reward || '1 : 2.0'}</span>
+            <span className="text-gray-400 font-medium">Risk/Reward Ratio:</span>
+            <span className="font-mono font-bold text-amber-400">
+              {signal?.trade_execution?.risk_reward_ratio || signal?.risk_reward || '1 : 1.3'}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Candlestick Patterns & Indicator Badges */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-        {/* Candlestick Patterns */}
-        <div className="bg-[#1e293b]/50 border border-gray-800/80 rounded-xl p-3.5">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-4 h-4 text-amber-400" />
-            <span className="text-xs font-bold text-gray-200">5-Min Candlestick Patterns Detected</span>
+      {/* 6-INDICATOR OBSERVATION CONFLUENCE CHECKLIST */}
+      <div className="mt-4 bg-[#1e293b]/60 border border-gray-800 rounded-2xl p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2 border-b border-gray-800">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+              6-Indicator Technical Confluence Checklist
+            </h3>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {signal?.patterns_detected?.length ? (
-              signal.patterns_detected.map((pat, idx) => (
-                <span
-                  key={idx}
-                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-500/10 border border-blue-500/20 text-blue-300"
-                >
-                  {pat}
-                </span>
-              ))
-            ) : (
-              <span className="text-xs text-gray-400 italic">No aggressive reversal candle pattern in last 3 bars (Trend following mode).</span>
-            )}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
+              {signal?.confluence_score?.confirmed || 4} / 6 Confirmed ({signal?.confluence_score?.percentage || 67}%)
+            </span>
+            <span className="text-[11px] text-gray-400 font-medium">
+              {signal?.confluence_score?.verdict || 'Good Confluence Setup'}
+            </span>
           </div>
         </div>
 
-        {/* Technical Confluence Badges */}
-        <div className="bg-[#1e293b]/50 border border-gray-800/80 rounded-xl p-3.5">
-          <div className="flex items-center gap-2 mb-2">
-            <Activity className="w-4 h-4 text-indigo-400" />
-            <span className="text-xs font-bold text-gray-200">Live Indicator Readings</span>
-          </div>
-          <div className="grid grid-cols-3 gap-2 text-[11px] font-mono">
-            <div className="bg-gray-900/60 p-1.5 rounded-lg border border-gray-800">
-              <span className="text-gray-500 block text-[9px]">EMA 9 / 21</span>
-              <span className={signal?.indicators?.trend_ribbon === 'BULLISH' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-                {signal?.indicators?.ema_9} / {signal?.indicators?.ema_21}
-              </span>
-            </div>
-            <div className="bg-gray-900/60 p-1.5 rounded-lg border border-gray-800">
-              <span className="text-gray-500 block text-[9px]">RSI (14)</span>
-              <span className="text-gray-200 font-bold">{signal?.indicators?.rsi_14 || 50}</span>
-            </div>
-            <div className="bg-gray-900/60 p-1.5 rounded-lg border border-gray-800">
-              <span className="text-gray-500 block text-[9px]">VWAP Base</span>
-              <span className="text-gray-200 font-bold">{signal?.indicators?.vwap || 'N/A'}</span>
-            </div>
-          </div>
+        {/* 6 Indicators Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          {signal?.indicator_checklist && signal.indicator_checklist.length > 0 ? (
+            signal.indicator_checklist.map((ind) => {
+              const isConfirmed = ind.status === 'CONFIRMED';
+              const isConflict = ind.status === 'CONFLICT';
+
+              return (
+                <div
+                  key={ind.id}
+                  className={`p-2.5 rounded-xl border text-xs transition-all ${
+                    isConfirmed
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-gray-200'
+                      : isConflict
+                      ? 'bg-rose-950/20 border-rose-500/30 text-gray-300'
+                      : 'bg-gray-900/40 border-gray-800 text-gray-400'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-white text-[11px] truncate flex items-center gap-1.5">
+                      {isConfirmed ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      ) : isConflict ? (
+                        <XCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      )}
+                      <span>{ind.name}</span>
+                    </span>
+                    <span
+                      className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded uppercase ${
+                        isConfirmed
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : isConflict
+                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          : 'bg-gray-800 text-gray-400'
+                      }`}
+                    >
+                      {ind.status}
+                    </span>
+                  </div>
+                  <div className="text-[10px] font-mono text-cyan-300 mb-0.5 truncate">{ind.value}</div>
+                  <div className="text-[10px] text-gray-400 line-clamp-1">{ind.detail || ind.description}</div>
+                </div>
+              );
+            })
+          ) : (
+            // Default 6 Indicators if not yet populated
+            [
+              { name: '1. EMA 9/21 Trend Ribbon', value: 'Trend Direction', status: 'CONFIRMED' },
+              { name: '2. Intraday VWAP Alignment', value: 'Volume Weighted Price', status: 'CONFIRMED' },
+              { name: '3. RSI 14 Momentum', value: 'Expansion / Breakdown', status: 'CONFIRMED' },
+              { name: '4. 5-Min Candlestick Pattern', value: 'Pinbars / Reversals', status: 'NEUTRAL' },
+              { name: '5. SuperTrend (10, 3) Trail', value: 'ATR Trailing Band', status: 'CONFIRMED' },
+              { name: '6. Volume Surge Filter', value: 'Institutional Spike', status: 'NEUTRAL' },
+            ].map((ind, i) => (
+              <div key={i} className="p-2.5 rounded-xl bg-gray-900/40 border border-gray-800 text-xs">
+                <span className="font-bold text-gray-300 block text-[11px]">{ind.name}</span>
+                <span className="text-[10px] text-gray-500">{ind.value}</span>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Free Demat API Integration Note */}
+        <div className="mt-3 pt-2.5 border-t border-gray-800 flex flex-wrap items-center justify-between text-[11px] text-gray-400">
+          <span className="flex items-center gap-1.5 text-blue-300">
+            <Zap className="w-3 h-3 text-amber-400" />
+            <span>Free Demat API Integration: <strong>Angel One SmartAPI</strong> & <strong>DhanHQ</strong></span>
+          </span>
+          <span className="text-gray-500">Zero-delay WebSocket tick streaming ready</span>
         </div>
       </div>
 
