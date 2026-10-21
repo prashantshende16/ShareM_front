@@ -153,6 +153,11 @@ export const api = {
     openai_api_key?: string;
     gemini_api_key?: string;
     anthropic_api_key?: string;
+    angel_one_api_key?: string;
+    angel_one_client_code?: string;
+    angel_one_pin?: string;
+    angel_one_totp_key?: string;
+    data_source_preference?: string;
   }): Promise<SettingsStatus> {
     const res = await fetch(`${API_BASE}/settings`, {
       method: 'POST',
@@ -167,6 +172,19 @@ export const api = {
     const res = await fetch(`${API_BASE}/settings/test-connection`, {
       method: 'POST',
     });
+    return res.json();
+  },
+
+  async testAngelOneConnection(): Promise<{ status: string; provider: string; connected: boolean; message: string; sample_quote?: any }> {
+    const res = await fetch(`${API_BASE}/settings/test-angel-one`, {
+      method: 'POST',
+    });
+    return res.json();
+  },
+
+  async getAngelOneStatus(): Promise<{ provider: string; is_free: boolean; configured: boolean; active: boolean; client_code: string; message: string }> {
+    const res = await fetch(`${API_BASE}/settings/angel-one/status`);
+    if (!res.ok) throw new Error('Failed to fetch Angel One status');
     return res.json();
   },
 

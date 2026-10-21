@@ -314,6 +314,9 @@ export interface SettingsStatus {
   is_anthropic_configured: boolean;
   market_data_connected: boolean;
   market_data_status: string;
+  angel_one_configured?: boolean;
+  angel_one_client_code?: string;
+  data_source_preference?: string;
 }
 
 export interface CompareData {

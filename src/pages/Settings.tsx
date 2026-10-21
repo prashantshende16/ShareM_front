@@ -10,7 +10,10 @@ import {
   Radio,
   Server,
   Save,
-  HelpCircle
+  HelpCircle,
+  Zap,
+  TrendingUp,
+  ExternalLink
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -27,13 +30,29 @@ export const Settings: React.FC = () => {
   const [geminiKey, setGeminiKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
 
+  // Angel One State
+  const [angelApiKey, setAngelApiKey] = useState('');
+  const [angelClientCode, setAngelClientCode] = useState('');
+  const [angelPin, setAngelPin] = useState('');
+  const [angelTotpKey, setAngelTotpKey] = useState('');
+  const [dataSourcePref, setDataSourcePref] = useState('auto');
+
   const [testResult, setTestResult] = useState<{ status: string; message: string } | null>(null);
   const [isTesting, setIsTesting] = useState(false);
+
+  const [angelTestResult, setAngelTestResult] = useState<{ status: string; message: string; sample_quote?: any } | null>(null);
+  const [isTestingAngel, setIsTestingAngel] = useState(false);
 
   // Sync state once fetched
   React.useEffect(() => {
     if (status) {
       setProvider(status.current_provider);
+      if (status.angel_one_client_code) {
+        setAngelClientCode(status.angel_one_client_code);
+      }
+      if (status.data_source_preference) {
+        setDataSourcePref(status.data_source_preference);
+      }
     }
   }, [status]);
 
@@ -44,6 +63,11 @@ export const Settings: React.FC = () => {
         openai_api_key: openaiKey || undefined,
         gemini_api_key: geminiKey || undefined,
         anthropic_api_key: anthropicKey || undefined,
+        angel_one_api_key: angelApiKey || undefined,
+        angel_one_client_code: angelClientCode || undefined,
+        angel_one_pin: angelPin || undefined,
+        angel_one_totp_key: angelTotpKey || undefined,
+        data_source_preference: dataSourcePref,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings-status'] });
@@ -64,6 +88,29 @@ export const Settings: React.FC = () => {
       setTestResult({ status: 'error', message: err.message || 'Connection test failed' });
     } finally {
       setIsTesting(false);
+    }
+  };
+
+  const handleTestAngelOne = async () => {
+    setIsTestingAngel(true);
+    setAngelTestResult(null);
+    try {
+      // If user typed in new credentials, save them first
+      if (angelApiKey || angelClientCode || angelPin || angelTotpKey) {
+        await api.updateSettings({
+          angel_one_api_key: angelApiKey || undefined,
+          angel_one_client_code: angelClientCode || undefined,
+          angel_one_pin: angelPin || undefined,
+          angel_one_totp_key: angelTotpKey || undefined,
+          data_source_preference: dataSourcePref,
+        });
+      }
+      const res = await api.testAngelOneConnection();
+      setAngelTestResult(res);
+    } catch (err: any) {
+      setAngelTestResult({ status: 'error', message: err.message || 'Angel One connection test failed' });
+    } finally {
+      setIsTestingAngel(false);
     }
   };
 
@@ -213,6 +260,171 @@ export const Settings: React.FC = () => {
               <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
             )}
             <span>{testResult.message}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Angel One SmartAPI Free Live Data Section */}
+      <div className="bg-[#111827] rounded-2xl border border-gray-800 p-6 shadow-xl space-y-6">
+        <div className="flex items-center justify-between border-b border-gray-800 pb-3">
+          <div className="flex items-center space-x-2">
+            <Zap className="w-5 h-5 text-amber-400" />
+            <div>
+              <h2 className="text-base font-semibold text-gray-100">Angel One SmartAPI Live Data</h2>
+              <p className="text-xs text-gray-400">100% Free with Demat account — Real-time Ticks & Option Chain</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span
+              className={`text-xs px-2.5 py-1 rounded-md border font-semibold ${
+                status?.angel_one_configured
+                  ? 'bg-emerald-950/50 text-emerald-400 border-emerald-800'
+                  : 'bg-gray-800 text-gray-400 border-gray-700'
+              }`}
+            >
+              {status?.angel_one_configured ? 'CONFIGURED' : 'NOT CONFIGURED'}
+            </span>
+          </div>
+        </div>
+
+        {/* Data Preference Selector */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-300 mb-2">
+            Data Feed Strategy:
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              { id: 'auto', name: 'Auto (Recommended)', desc: 'Use Angel One if configured, fallback to Yahoo Finance' },
+              { id: 'angel_one', name: 'Angel One Only', desc: 'Direct broker feed for tick-level precision' },
+              { id: 'yfinance', name: 'Yahoo Finance Only', desc: 'Public feed without requiring broker API login' },
+            ].map((opt) => (
+              <div
+                key={opt.id}
+                onClick={() => setDataSourcePref(opt.id)}
+                className={`p-3 rounded-xl border cursor-pointer text-xs transition-all ${
+                  dataSourcePref === opt.id
+                    ? 'bg-amber-950/30 border-amber-500 shadow-md shadow-amber-950/40 text-amber-200'
+                    : 'bg-gray-900/60 border-gray-800 text-gray-400 hover:border-gray-700'
+                }`}
+              >
+                <div className="font-bold mb-1">{opt.name}</div>
+                <div className="text-[10px] text-gray-400 leading-tight">{opt.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Credentials Form */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              Angel One SmartAPI Key
+            </label>
+            <input
+              type="text"
+              value={angelApiKey}
+              onChange={(e) => setAngelApiKey(e.target.value)}
+              placeholder="e.g. your_api_key_here"
+              className="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-xs text-gray-100 focus:outline-none focus:border-amber-500 font-mono"
+            />
+            <p className="text-[10px] text-gray-500 mt-1">
+              Create free Trading API app at <a href="https://smartapi.angelone.in" target="_blank" rel="noreferrer" className="text-amber-400 hover:underline">smartapi.angelone.in</a>
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              Client Code (Angel One ID)
+            </label>
+            <input
+              type="text"
+              value={angelClientCode}
+              onChange={(e) => setAngelClientCode(e.target.value)}
+              placeholder="e.g. P123456"
+              className="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-xs text-gray-100 focus:outline-none focus:border-amber-500 font-mono"
+            />
+            <p className="text-[10px] text-gray-500 mt-1">Your Angel One User ID / Account Code</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              MPIN / Login PIN
+            </label>
+            <input
+              type="password"
+              value={angelPin}
+              onChange={(e) => setAngelPin(e.target.value)}
+              placeholder="••••"
+              className="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-xs text-gray-100 focus:outline-none focus:border-amber-500 font-mono"
+            />
+            <p className="text-[10px] text-gray-500 mt-1">Your 4-digit Angel One trading login PIN</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              TOTP Secret Key
+            </label>
+            <input
+              type="password"
+              value={angelTotpKey}
+              onChange={(e) => setAngelTotpKey(e.target.value)}
+              placeholder="Base32 Key (from Google Authenticator setup)"
+              className="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-3.5 py-2.5 text-xs text-gray-100 focus:outline-none focus:border-amber-500 font-mono"
+            />
+            <p className="text-[10px] text-gray-500 mt-1">
+              Base32 secret from Angel One 2FA setup (pure Python RFC 6238 TOTP auto-generates codes)
+            </p>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-gray-800">
+          <button
+            type="button"
+            onClick={() => updateMutation.mutate()}
+            disabled={updateMutation.isPending}
+            className="flex items-center space-x-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-amber-600/20 active:scale-95"
+          >
+            <Save className="w-4 h-4" />
+            <span>Save Angel One Credentials</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleTestAngelOne}
+            disabled={isTestingAngel}
+            className="flex items-center space-x-2 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-semibold px-4 py-2.5 rounded-xl border border-gray-700 transition-colors"
+          >
+            <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <span>{isTestingAngel ? 'Connecting to SmartAPI...' : 'Test Angel One & Fetch Live Nifty Tick'}</span>
+          </button>
+        </div>
+
+        {/* Angel Test Result Message */}
+        {angelTestResult && (
+          <div
+            className={`p-3.5 rounded-xl border text-xs space-y-1 ${
+              angelTestResult.status === 'success'
+                ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300'
+                : 'bg-red-950/40 border-red-500/50 text-red-300'
+            }`}
+          >
+            <div className="flex items-center space-x-2 font-semibold">
+              {angelTestResult.status === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+              )}
+              <span>{angelTestResult.message}</span>
+            </div>
+            {angelTestResult.sample_quote && (
+              <div className="mt-2 p-2 bg-gray-900/80 rounded border border-emerald-800/50 font-mono text-[11px] grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div>LTP: ₹{angelTestResult.sample_quote.ltp}</div>
+                <div>High: ₹{angelTestResult.sample_quote.high}</div>
+                <div>Low: ₹{angelTestResult.sample_quote.low}</div>
+                <div>Close: ₹{angelTestResult.sample_quote.close}</div>
+              </div>
+            )}
           </div>
         )}
       </div>
