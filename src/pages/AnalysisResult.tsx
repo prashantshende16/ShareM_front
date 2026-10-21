@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   TrendingUp,
   TrendingDown,
@@ -18,7 +18,8 @@ import {
   GitCompare,
   AlertTriangle,
   Flame,
-  Activity
+  Activity,
+  Trash2
 } from 'lucide-react';
 import { api } from '../services/api';
 import { ConfidenceMeter } from '../components/ConfidenceMeter';
@@ -29,6 +30,8 @@ import { OptionSignalCard } from '../components/OptionSignalCard';
 
 export const AnalysisResult: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [selectedScreenshotIndex, setSelectedScreenshotIndex] = useState(0);
 
   const { data: analysis, isLoading, error } = useQuery({
@@ -39,6 +42,22 @@ export const AnalysisResult: React.FC = () => {
       return query.state.data?.status === 'analyzing' ? 2000 : false;
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (analysisId: number) => api.deleteAnalysis(analysisId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['analyses-history'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-analyses'] });
+      navigate('/history');
+    },
+  });
+
+  const handleDelete = () => {
+    if (analysis && window.confirm(`Are you sure you want to delete analysis for ${analysis.symbol} (#${analysis.id})?`)) {
+      deleteMutation.mutate(analysis.id);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -142,6 +161,15 @@ export const AnalysisResult: React.FC = () => {
                 <GitCompare className="w-3.5 h-3.5" />
                 <span>Compare</span>
               </Link>
+              <button
+                onClick={handleDelete}
+                disabled={deleteMutation.isPending}
+                className="inline-flex items-center space-x-1.5 bg-red-950/60 hover:bg-red-900/80 text-red-300 hover:text-white text-xs font-semibold px-3.5 py-2 rounded-xl border border-red-500/50 transition-colors"
+                title="Delete this analysis record"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                <span>{deleteMutation.isPending ? 'Deleting...' : 'Delete'}</span>
+              </button>
             </div>
           </div>
         </div>

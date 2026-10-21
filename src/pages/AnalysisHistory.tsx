@@ -40,6 +40,17 @@ export const AnalysisHistory: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['analyses-history'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-analyses'] });
+    },
+  });
+
+  const deleteAllMutation = useMutation({
+    mutationFn: () => api.deleteAllAnalyses(),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['analyses-history'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-analyses'] });
+      alert(data.message || 'All analyses deleted successfully');
     },
   });
 
@@ -49,14 +60,32 @@ export const AnalysisHistory: React.FC = () => {
     }
   };
 
+  const handleDeleteAll = () => {
+    if (window.confirm('Are you sure you want to delete ALL past analysis records? This action cannot be undone.')) {
+      deleteAllMutation.mutate();
+    }
+  };
+
   return (
     <div className="space-y-6 pb-12">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-100">Analysis History</h1>
-        <p className="text-sm text-gray-400 mt-1">
-          Review, filter, compare, and manage past F&O chart evaluations.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-100">Analysis History</h1>
+          <p className="text-sm text-gray-400 mt-1">
+            Review, filter, compare, and manage past F&O chart evaluations.
+          </p>
+        </div>
+        {analyses && analyses.length > 0 && (
+          <button
+            onClick={handleDeleteAll}
+            disabled={deleteAllMutation.isPending}
+            className="inline-flex items-center space-x-2 bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-500/50 px-4 py-2 rounded-xl text-xs font-semibold transition-all shadow-md shadow-red-950/40 active:scale-95"
+          >
+            <Trash2 className="w-4 h-4 text-red-400" />
+            <span>{deleteAllMutation.isPending ? 'Deleting All...' : 'Delete All Records'}</span>
+          </button>
+        )}
       </div>
 
       {/* Filters (Section 24) */}
@@ -252,10 +281,12 @@ export const AnalysisHistory: React.FC = () => {
 
                         <button
                           onClick={() => handleDelete(a.id, a.symbol)}
-                          className="p-1 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-950/30 transition-colors"
-                          title="Delete"
+                          disabled={deleteMutation.isPending}
+                          className="inline-flex items-center space-x-1.5 bg-red-950/60 hover:bg-red-900/80 text-red-300 hover:text-white border border-red-500/60 hover:border-red-400 px-3 py-1 rounded-lg transition-all font-semibold text-xs shadow-sm hover:shadow-red-950/50 active:scale-95 ml-2"
+                          title="Delete this analysis record"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                          <span>Delete</span>
                         </button>
                       </td>
                     </tr>

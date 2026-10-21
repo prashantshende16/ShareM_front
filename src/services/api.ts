@@ -72,6 +72,14 @@ export const api = {
     return res.json();
   },
 
+  async deleteAllAnalyses(): Promise<{ message: string; deleted_count: number }> {
+    const res = await fetch(`${API_BASE}/analyses`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Failed to delete all analyses');
+    return res.json();
+  },
+
   async uploadScreenshot(analysisId: number, file: File, timeframe: string): Promise<Screenshot> {
     const formData = new FormData();
     formData.append('file', file);

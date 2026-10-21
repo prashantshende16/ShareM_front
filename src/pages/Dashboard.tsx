@@ -1,5 +1,5 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   TrendingUp,
@@ -11,7 +11,8 @@ import {
   ArrowRight,
   BarChart3,
   Search,
-  Activity
+  Activity,
+  Trash2
 } from 'lucide-react';
 import { api } from '../services/api';
 import { ConfidenceMeter } from '../components/ConfidenceMeter';
@@ -19,6 +20,8 @@ import { LiveMarketTicker } from '../components/LiveMarketTicker';
 import { OptionSignalCard } from '../components/OptionSignalCard';
 
 export const Dashboard: React.FC = () => {
+  const queryClient = useQueryClient();
+
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: () => api.getStats(),
@@ -28,6 +31,39 @@ export const Dashboard: React.FC = () => {
     queryKey: ['recent-analyses'],
     queryFn: () => api.getAnalyses({}),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => api.deleteAnalysis(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recent-analyses'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['analyses-history'] });
+    },
+  });
+
+  const deleteAllMutation = useMutation({
+    mutationFn: () => api.deleteAllAnalyses(),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['recent-analyses'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['analyses-history'] });
+      alert(data.message || 'All finished analyses deleted successfully');
+    },
+  });
+
+  const handleDelete = (e: React.MouseEvent, id: number, symbol: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.confirm(`Are you sure you want to delete analysis for ${symbol} (#${id})?`)) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const handleDeleteAll = () => {
+    if (window.confirm('Are you sure you want to delete ALL finished analysis records from the dashboard? This action cannot be undone.')) {
+      deleteAllMutation.mutate();
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -134,18 +170,30 @@ export const Dashboard: React.FC = () => {
 
       {/* Recent Analyses Section (Section 4) */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-gray-100">Recent Analyses</h2>
+            <h2 className="text-lg font-bold text-gray-100">Recent Finished Analyses</h2>
             <p className="text-xs text-gray-400">Latest multi-timeframe chart evaluations</p>
           </div>
-          <Link
-            to="/history"
-            className="text-xs font-medium text-blue-400 hover:text-blue-300 flex items-center space-x-1"
-          >
-            <span>View All</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          <div className="flex items-center space-x-3">
+            {analyses && analyses.length > 0 && (
+              <button
+                onClick={handleDeleteAll}
+                disabled={deleteAllMutation.isPending}
+                className="inline-flex items-center space-x-1.5 bg-red-950/60 hover:bg-red-900/80 text-red-300 hover:text-white border border-red-500/50 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shadow-sm active:scale-95"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                <span>{deleteAllMutation.isPending ? 'Deleting...' : 'Delete All Finished'}</span>
+              </button>
+            )}
+            <Link
+              to="/history"
+              className="text-xs font-medium text-blue-400 hover:text-blue-300 flex items-center space-x-1 bg-blue-950/40 border border-blue-800/50 px-3 py-1.5 rounded-xl transition-colors"
+            >
+              <span>View All History</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
 
         {analysesLoading ? (
@@ -180,12 +228,11 @@ export const Dashboard: React.FC = () => {
               const cmp = item.current_price;
 
               return (
-                <Link
+                <div
                   key={item.id}
-                  to={`/analyses/${item.id}`}
-                  className="bg-[#111827] hover:bg-[#151f33] rounded-2xl border border-gray-800 hover:border-gray-700 p-5 transition-all duration-200 flex flex-col justify-between group shadow-lg"
+                  className="bg-[#111827] hover:bg-[#151f33] rounded-2xl border border-gray-800 hover:border-gray-700 p-5 transition-all duration-200 flex flex-col justify-between group shadow-lg relative"
                 >
-                  <div>
+                  <Link to={`/analyses/${item.id}`} className="block">
                     {/* Top row */}
                     <div className="flex items-center justify-between mb-3">
                       <div>
@@ -196,10 +243,12 @@ export const Dashboard: React.FC = () => {
                           {item.instrument_type}
                         </span>
                       </div>
-                      <span className="text-[11px] text-gray-400 flex items-center space-x-1 font-mono">
-                        <Clock className="w-3 h-3" />
-                        <span>{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[11px] text-gray-400 flex items-center space-x-1 font-mono">
+                          <Clock className="w-3 h-3" />
+                          <span>{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </span>
+                      </div>
                     </div>
 
                     {/* Scenario Badge + Confidence */}
@@ -237,19 +286,33 @@ export const Dashboard: React.FC = () => {
                         </strong>
                       </div>
                     </div>
-                  </div>
+                  </Link>
 
-                  {/* Footer */}
+                  {/* Footer with Open & Delete Buttons */}
                   <div className="mt-4 pt-3 border-t border-gray-800/80 flex items-center justify-between text-xs">
                     <span className="text-gray-400">
                       Risk: <strong className="text-gray-200">{res?.risk_analysis?.risk_level || 'Medium'}</strong>
                     </span>
-                    <span className="text-blue-400 font-medium group-hover:translate-x-1 transition-transform flex items-center space-x-1">
-                      <span>View Analysis</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </span>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={(e) => handleDelete(e, item.id, item.symbol)}
+                        disabled={deleteMutation.isPending}
+                        className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-red-400 hover:text-white bg-red-950/40 hover:bg-red-900/80 border border-red-500/40 hover:border-red-400 transition-all font-semibold text-[11px]"
+                        title="Delete this record"
+                      >
+                        <Trash2 className="w-3 h-3 text-red-400" />
+                        <span>Delete</span>
+                      </button>
+                      <Link
+                        to={`/analyses/${item.id}`}
+                        className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-blue-400 hover:text-white bg-blue-950/40 hover:bg-blue-900/80 border border-blue-500/40 hover:border-blue-400 transition-all font-semibold text-[11px]"
+                      >
+                        <span>Open</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </Link>
+                    </div>
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>
