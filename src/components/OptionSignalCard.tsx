@@ -27,12 +27,14 @@ interface OptionSignalCardProps {
   symbol?: string;
   initialSignal?: OptionIndicator5m;
   allowSymbolSelect?: boolean;
+  onTradeAdded?: () => void;
 }
 
 export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
   symbol = 'NIFTY 50',
   initialSignal,
-  allowSymbolSelect = false
+  allowSymbolSelect = false,
+  onTradeAdded
 }) => {
   const [currentSymbol, setCurrentSymbol] = useState(symbol);
   const [expiryType, setExpiryType] = useState<string>(
@@ -48,8 +50,56 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
   const [loading, setLoading] = useState(!initialSignal);
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
+  const [isAddingSingleTrade, setIsAddingSingleTrade] = useState(false);
+  const [tradeAddMessage, setTradeAddMessage] = useState<string | null>(null);
 
   const ALL_MARKET_KEYS = ['NIFTY 50', 'BANK NIFTY', 'SENSEX', 'FINNIFTY', 'MIDCPNIFTY'];
+
+  const handleAddSingleTrade = async () => {
+    if (!signal) return;
+    setIsAddingSingleTrade(true);
+    setTradeAddMessage(null);
+    try {
+      const exec = signal.trade_execution;
+      const entryPrice = exec?.recommended_entry || 100;
+      const ltp = exec?.current_ltp || entryPrice;
+      const sl = exec?.stop_loss || Math.round(entryPrice * 0.8);
+      const t1 = exec?.target_1 || Math.round(entryPrice * 1.25);
+      const t2 = exec?.target_2 || Math.round(entryPrice * 1.5);
+      const lotSize = exec?.lot_size || 25;
+
+      await api.createTrade({
+        symbol: currentSymbol,
+        contract_name: exec?.contract_name || `${currentSymbol} ${signal.active_expiry || ''} ${signal.strike_suggestion || ''}`,
+        exchange: currentSymbol.includes('SENSEX') ? 'BFO' : 'NFO',
+        tradingsymbol: signal.contract_tradingsymbol,
+        symboltoken: signal.contract_symboltoken,
+        action: 'BUY',
+        option_type: (signal.direction === 'CALL' ? 'CE' : 'PE') as any,
+        strike_price: signal.selected_strike,
+        expiry: signal.active_expiry,
+        timeframe: timeframe,
+        lots: 1,
+        lot_size: lotSize,
+        entry_price: entryPrice,
+        current_ltp: ltp,
+        stop_loss: sl,
+        target_1: t1,
+        target_2: t2,
+        trade_mode: 'PAPER',
+        notes: `1-Lot Trade from ${timeframe} Indicator Card (${signal.decision})`
+      });
+
+      setTradeAddMessage('✅ Trade added to Active Portfolio!');
+      setTimeout(() => setTradeAddMessage(null), 4000);
+      if (onTradeAdded) onTradeAdded();
+    } catch (err: any) {
+      setTradeAddMessage(`❌ ${err.message || 'Failed to add trade'}`);
+      setTimeout(() => setTradeAddMessage(null), 4000);
+    } finally {
+      setIsAddingSingleTrade(false);
+    }
+  };
 
   // Fetch all markets in parallel from now till next horizon
   const fetchAllMarkets = async (expType = expiryType, tf = timeframe) => {
@@ -683,6 +733,24 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
                   +₹{signal?.trade_execution?.target_2_profit?.toLocaleString() || (65 * 24).toLocaleString()}
                 </strong>
               </div>
+            </div>
+
+            {/* Individual Add Trade Button */}
+            <div className="mt-2.5">
+              <button
+                type="button"
+                disabled={isAddingSingleTrade}
+                onClick={handleAddSingleTrade}
+                className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 transition disabled:opacity-50"
+              >
+                <Zap className="w-3.5 h-3.5 fill-current" />
+                <span>{isAddingSingleTrade ? 'Adding Trade...' : `⚡ Add ${currentSymbol} Trade (1 Lot)`}</span>
+              </button>
+              {tradeAddMessage && (
+                <div className="text-[10px] text-center font-bold mt-1 text-emerald-300">
+                  {tradeAddMessage}
+                </div>
+              )}
             </div>
           </div>
 

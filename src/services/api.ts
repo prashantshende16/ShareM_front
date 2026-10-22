@@ -286,5 +286,126 @@ export const api = {
     const res = await fetch(`${API_BASE}/market/analyze-all-live`, { method: 'POST' });
     if (!res.ok) throw new Error('Failed to initiate live analyses for all markets');
     return res.json();
+  },
+
+  // Trade & Margin Management
+  async getProfileMargin(): Promise<import('../types').ProfileMarginData> {
+    const res = await fetch(`${API_BASE}/trades/profile-margin`);
+    if (!res.ok) throw new Error('Failed to fetch profile & margin');
+    return res.json();
+  },
+
+  async getTrades(status?: string): Promise<import('../types').TradePosition[]> {
+    let url = `${API_BASE}/trades`;
+    if (status) url += `?status=${encodeURIComponent(status)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Failed to fetch trades');
+    return res.json();
+  },
+
+  async createTrade(trade: Partial<import('../types').TradePosition>): Promise<import('../types').TradePosition> {
+    const res = await fetch(`${API_BASE}/trades`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(trade),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to create trade');
+    }
+    return res.json();
+  },
+
+  async oneClickBatchAddTrades(params: {
+    indices?: string[];
+    timeframe?: string;
+    expiry_type?: string;
+    lots?: number;
+    trade_mode?: string;
+  } = {}): Promise<import('../types').OneClickBatchResponse> {
+    const res = await fetch(`${API_BASE}/trades/one-click-batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        indices: params.indices || ['NIFTY 50', 'BANK NIFTY', 'SENSEX', 'FINNIFTY'],
+        timeframe: params.timeframe || '5m',
+        expiry_type: params.expiry_type || 'current',
+        lots: params.lots || 1,
+        trade_mode: params.trade_mode || 'PAPER'
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to execute 1-Click batch trades');
+    }
+    return res.json();
+  },
+
+  async bookTarget1(tradeId: number): Promise<{
+    status: string;
+    message: string;
+    trade: Partial<import('../types').TradePosition>;
+  }> {
+    const res = await fetch(`${API_BASE}/trades/${tradeId}/book-target-1`, { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to book Target 1');
+    }
+    return res.json();
+  },
+
+  async bookTarget2(tradeId: number): Promise<{
+    status: string;
+    message: string;
+    trade: Partial<import('../types').TradePosition>;
+  }> {
+    const res = await fetch(`${API_BASE}/trades/${tradeId}/book-target-2`, { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to book Target 2');
+    }
+    return res.json();
+  },
+
+  async closeTrade(tradeId: number): Promise<{
+    status: string;
+    message: string;
+    realized_pnl: number;
+  }> {
+    const res = await fetch(`${API_BASE}/trades/${tradeId}/close`, { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to close trade');
+    }
+    return res.json();
+  },
+
+  async trailStopLoss(tradeId: number, newStopLoss?: number): Promise<{
+    status: string;
+    message: string;
+    stop_loss: number;
+  }> {
+    const res = await fetch(`${API_BASE}/trades/${tradeId}/trail-sl`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_stop_loss: newStopLoss }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to trail stop loss');
+    }
+    return res.json();
+  },
+
+  async deleteTrade(tradeId: number): Promise<{ status: string; message: string }> {
+    const res = await fetch(`${API_BASE}/trades/${tradeId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete trade');
+    return res.json();
+  },
+
+  async clearAllTrades(): Promise<{ status: string; message: string }> {
+    const res = await fetch(`${API_BASE}/trades`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to clear trades');
+    return res.json();
   }
 };

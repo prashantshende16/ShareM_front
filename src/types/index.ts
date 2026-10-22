@@ -218,6 +218,8 @@ export interface OptionIndicator5m {
   selected_strike?: number;
   selected_option_type?: string;
   is_live_angel_one?: boolean;
+  contract_tradingsymbol?: string;
+  contract_symboltoken?: string;
   trade_execution?: TradeExecution;
   indicator_checklist?: IndicatorChecklistItem[];
   confluence_score?: ConfluenceScore;
@@ -471,4 +473,95 @@ export interface LiveAnalysisRequest {
   notes?: string;
   ai_provider?: string;
 }
+
+export interface TradePosition {
+  id: number;
+  symbol: string;
+  contract_name: string;
+  exchange: string;
+  tradingsymbol?: string;
+  symboltoken?: string;
+  action: 'BUY' | 'SELL';
+  option_type: 'CE' | 'PE';
+  strike_price?: number;
+  expiry?: string;
+  timeframe: string;
+  lots: number;
+  lot_size: number;
+  quantity: number;
+  entry_price: number;
+  current_ltp: number;
+  stop_loss: number;
+  target_1: number;
+  target_2: number;
+  margin_required: number;
+  max_risk: number;
+  target_1_profit: number;
+  target_2_profit: number;
+  unrealized_pnl: number;
+  pnl_percentage: number;
+  realized_pnl: number;
+  status: 'ACTIVE' | 'TARGET_1_BOOKED' | 'TARGET_2_BOOKED' | 'STOPPED_OUT' | 'CLOSED' | 'CANCELLED';
+  trade_mode: 'PAPER' | 'LIVE';
+  angel_order_id?: string;
+  notes?: string;
+  entry_time?: string;
+  exit_time?: string;
+  created_at?: string;
+}
+
+export interface ProfileMarginData {
+  status: string;
+  client_code: string;
+  client_name: string;
+  is_angel_connected: boolean;
+  live_rms: {
+    available_margin: number;
+    available_cash: number;
+    utilized_margin: number;
+    unrealized_m2m: number;
+    realized_m2m: number;
+  };
+  paper_portfolio: {
+    starting_balance: number;
+    available_balance: number;
+    margin_blocked: number;
+    unrealized_pnl: number;
+    realized_pnl: number;
+    total_pnl: number;
+    open_positions: number;
+    total_trades: number;
+  };
+  exchanges: string[];
+}
+
+export interface OneClickBatchResponse {
+  status: string;
+  message: string;
+  trades_count: number;
+  total_margin_required: number;
+  total_max_risk: number;
+  total_target_1_profit: number;
+  total_target_2_profit: number;
+  trades: Array<{
+    id: number;
+    symbol: string;
+    contract_name: string;
+    action: string;
+    option_type: string;
+    quantity: number;
+    current_ltp: number;
+    entry_price: number;
+    stop_loss: number;
+    target_1: number;
+    target_2: number;
+    margin_required: number;
+    max_risk: number;
+    target_1_profit: number;
+    target_2_profit: number;
+    status: string;
+    trade_mode: string;
+  }>;
+}
+
 
