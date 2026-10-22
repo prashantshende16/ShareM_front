@@ -234,5 +234,28 @@ export const api = {
     const res = await fetch(url);
     if (!res.ok) throw new Error('Failed to fetch 5-min option indicator signal');
     return res.json();
+  },
+
+  async getAllOptionIndicatorSignals(expiryType = 'current'): Promise<{
+    status: string;
+    timestamp: string;
+    timestamp_iso: string;
+    valid_until: string;
+    total_markets: number;
+    signals: Record<string, OptionIndicator5m>;
+  }> {
+    const res = await fetch(`${API_BASE}/market/all-option-signals?expiry_type=${encodeURIComponent(expiryType)}`);
+    if (!res.ok) throw new Error('Failed to fetch all-market option signals');
+    return res.json();
+  },
+
+  async analyzeAllLiveMarkets(): Promise<{
+    status: string;
+    message: string;
+    analyses: Array<{ symbol: string; analysis_id: number }>;
+  }> {
+    const res = await fetch(`${API_BASE}/market/analyze-all-live`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to initiate live analyses for all markets');
+    return res.json();
   }
 };

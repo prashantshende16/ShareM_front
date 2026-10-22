@@ -38,10 +38,47 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
   );
   const [selectedStrike, setSelectedStrike] = useState<number | undefined>(initialSignal?.selected_strike);
   const [signal, setSignal] = useState<OptionIndicator5m | null>(initialSignal || null);
+  const [allSignals, setAllSignals] = useState<Record<string, OptionIndicator5m> | null>(null);
+  const [lastEvaluatedAt, setLastEvaluatedAt] = useState<string>('');
+  const [lastValidUntil, setLastValidUntil] = useState<string>('');
   const [loading, setLoading] = useState(!initialSignal);
+  const [refreshingAll, setRefreshingAll] = useState(false);
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
 
-  const fetchSignal = async (sym: string, expType = expiryType, strike = selectedStrike) => {
+  const ALL_MARKET_KEYS = ['NIFTY 50', 'BANK NIFTY', 'SENSEX', 'FINNIFTY', 'MIDCPNIFTY'];
+
+  // Fetch all markets in parallel from now till next 30m horizon
+  const fetchAllMarkets = async (expType = expiryType) => {
+    try {
+      setLoading(true);
+      setRefreshingAll(true);
+      const res = await api.getAllOptionIndicatorSignals(expType);
+      setAllSignals(res.signals);
+      setLastEvaluatedAt(res.timestamp);
+      setLastValidUntil(res.valid_until);
+
+      // Select current market's signal, or default to NIFTY 50
+      const activeSig = res.signals[currentSymbol] || res.signals['NIFTY 50'] || Object.values(res.signals)[0];
+      if (activeSig) {
+        setSignal(activeSig);
+        if (activeSig.selected_strike) {
+          setSelectedStrike(activeSig.selected_strike);
+        }
+        if (activeSig.active_expiry) {
+          setExpiryType(activeSig.active_expiry);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch all-market option signals:', err);
+      // Fallback to single market fetch if all fails
+      fetchSingleSignal(currentSymbol, expType, selectedStrike);
+    } finally {
+      setLoading(false);
+      setRefreshingAll(false);
+    }
+  };
+
+  const fetchSingleSignal = async (sym: string, expType = expiryType, strike = selectedStrike) => {
     try {
       setLoading(true);
       const res = await api.getOptionIndicatorSignal(sym, expType, strike);
@@ -54,6 +91,8 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
       } else if (res.signal.active_expiry_type) {
         setExpiryType(res.signal.active_expiry_type);
       }
+      // Also update local cache for this symbol in allSignals
+      setAllSignals((prev) => (prev ? { ...prev, [sym]: res.signal } : { [sym]: res.signal }));
     } catch (err) {
       console.error('Failed to fetch option signal:', err);
     } finally {
@@ -61,19 +100,35 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
     }
   };
 
+  const handleSelectMarket = (sym: string) => {
+    setCurrentSymbol(sym);
+    if (allSignals && allSignals[sym]) {
+      const targetSig = allSignals[sym];
+      setSignal(targetSig);
+      if (targetSig.selected_strike) {
+        setSelectedStrike(targetSig.selected_strike);
+      }
+      if (targetSig.active_expiry) {
+        setExpiryType(targetSig.active_expiry);
+      }
+    } else {
+      fetchSingleSignal(sym, expiryType);
+    }
+  };
+
   const handleExpiryChange = (type: string) => {
     setExpiryType(type);
-    fetchSignal(currentSymbol, type, selectedStrike);
+    fetchSingleSignal(currentSymbol, type, selectedStrike);
   };
 
   const handleStrikeChange = (strike: number) => {
     setSelectedStrike(strike);
-    fetchSignal(currentSymbol, expiryType, strike);
+    fetchSingleSignal(currentSymbol, expiryType, strike);
   };
 
   useEffect(() => {
     if (!initialSignal) {
-      fetchSignal(currentSymbol, expiryType, selectedStrike);
+      fetchAllMarkets(expiryType);
     } else {
       setSignal(initialSignal);
       if (initialSignal.selected_strike) {
@@ -83,7 +138,7 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
         setExpiryType(initialSignal.active_expiry_type);
       }
     }
-  }, [currentSymbol, initialSignal]);
+  }, [initialSignal]);
 
   // Update live elapsed time every 30 seconds
   useEffect(() => {
@@ -151,38 +206,107 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
           </div>
         </div>
 
-        {/* Quick Instrument Buttons if selector enabled */}
-        <div className="flex items-center gap-2">
-          {allowSymbolSelect && (
-            <div className="flex items-center gap-1.5 bg-[#1e293b]/80 p-1 rounded-xl border border-gray-700">
-              {['NIFTY 50', 'BANKNIFTY', 'FINNIFTY'].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => {
-                    setCurrentSymbol(s);
-                    fetchSignal(s);
-                  }}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
-                    currentSymbol === s
-                      ? 'bg-blue-600 text-white shadow'
-                      : 'text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          )}
+        {/* Quick Instrument & Refresh Controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => fetchAllMarkets(expiryType)}
+            disabled={loading}
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold transition-all shadow-lg shadow-blue-600/30 active:scale-95 flex items-center gap-2 text-xs"
+            title="Recalculate Next Horizon for All 5 Indian Markets in Parallel"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshingAll ? 'animate-spin' : ''}`} />
+            <span>{refreshingAll ? 'Analyzing All Markets...' : 'Refresh All Markets'}</span>
+          </button>
 
           <button
-            onClick={() => fetchSignal(currentSymbol)}
+            onClick={() => fetchSingleSignal(currentSymbol, expiryType, selectedStrike)}
             disabled={loading}
             className="p-2 rounded-xl bg-gray-800/80 hover:bg-gray-700 text-gray-300 transition-colors border border-gray-700 flex items-center gap-1.5 text-xs font-semibold"
-            title="Recalculate 5-min Option Signal"
+            title={`Refresh only ${currentSymbol}`}
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-400' : ''}`} />
-            <span className="hidden sm:inline">Refresh Signal</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${loading && !refreshingAll ? 'animate-spin text-cyan-400' : ''}`} />
+            <span className="hidden sm:inline">Active Only</span>
           </button>
+        </div>
+      </div>
+
+      {/* ALL MARKETS LIVE HORIZON STRIP */}
+      <div className="mb-5 p-3.5 rounded-2xl bg-gray-950/60 border border-gray-800/90">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5 px-1">
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-cyan-400" />
+            <span className="text-xs font-bold text-white tracking-wide uppercase font-mono">
+              All Major Markets • Next 30-Min Horizon
+            </span>
+          </div>
+          <span className="text-[10px] text-gray-400 font-mono">
+            {lastEvaluatedAt ? `Synced at ${lastEvaluatedAt}` : 'Live Parallel Evaluation'} • Click to view details
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          {ALL_MARKET_KEYS.map((symKey) => {
+            const mSignal = allSignals ? allSignals[symKey] : (symKey === currentSymbol ? signal : null);
+            const isSelected = currentSymbol === symKey;
+            const isMSigCall = mSignal?.direction === 'CALL';
+            const isMSigPut = mSignal?.direction === 'PUT';
+            const decisionLabel = isMSigCall ? 'BUY CALL' : isMSigPut ? 'BUY PUT' : 'WAIT';
+            const ltp = mSignal?.trade_execution?.current_ltp;
+            const strikeText = mSignal?.strike_suggestion || '--';
+            const conf = mSignal?.confidence || mSignal?.confluence_score?.percentage;
+
+            return (
+              <button
+                key={symKey}
+                type="button"
+                onClick={() => handleSelectMarket(symKey)}
+                className={`p-2.5 rounded-xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
+                  isSelected
+                    ? isMSigCall
+                      ? 'bg-emerald-950/70 border-emerald-400 shadow-md ring-2 ring-emerald-500/40'
+                      : isMSigPut
+                      ? 'bg-rose-950/70 border-rose-400 shadow-md ring-2 ring-rose-500/40'
+                      : 'bg-blue-950/70 border-blue-400 shadow-md ring-2 ring-blue-500/40'
+                    : 'bg-gray-900/80 border-gray-800 hover:border-gray-700 hover:bg-gray-850'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-black text-white truncate">{symKey}</span>
+                    {mSignal ? (
+                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase ${
+                        isMSigCall
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : isMSigPut
+                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      }`}>
+                        {decisionLabel}
+                      </span>
+                    ) : (
+                      <span className="text-[9px] text-gray-500 font-mono">...</span>
+                    )}
+                  </div>
+
+                  <div className="text-[11px] font-mono text-gray-200 font-semibold truncate">
+                    {strikeText}
+                  </div>
+                </div>
+
+                <div className="mt-2 pt-1.5 border-t border-gray-800/80 flex items-center justify-between text-[10px] font-mono">
+                  <span className="text-cyan-300 font-bold flex items-center gap-1">
+                    {mSignal?.trade_execution?.is_live_angel_one && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block"></span>
+                    )}
+                    {ltp ? `₹${ltp}` : '--'}
+                  </span>
+                  <span className="text-gray-400 text-[9px]">
+                    {conf ? `${conf}%` : ''}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -192,9 +316,9 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
         <div className="flex items-center gap-2.5 px-2">
           <Clock className="w-4 h-4 text-cyan-400 shrink-0" />
           <div>
-            <span className="text-[10px] text-gray-400 block uppercase font-mono">Analyzed At (Hit Time)</span>
+            <span className="text-[10px] text-gray-400 block uppercase font-mono">Refresh Timestamp (Hit Time)</span>
             <strong className="text-sm font-mono text-cyan-200">
-              {signal?.generated_at || 'Just now'}
+              {signal?.generated_at || lastEvaluatedAt || 'Just now'}
             </strong>
           </div>
         </div>
@@ -203,9 +327,9 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
         <div className="flex items-center gap-2.5 px-2 border-t sm:border-t-0 sm:border-l border-gray-800 pt-2 sm:pt-0">
           <CalendarCheck className="w-4 h-4 text-emerald-400 shrink-0" />
           <div>
-            <span className="text-[10px] text-gray-400 block uppercase font-mono">Valid Window (15 - 30m)</span>
+            <span className="text-[10px] text-gray-400 block uppercase font-mono">Next Horizon (Valid Till)</span>
             <strong className="text-sm font-mono text-emerald-300">
-              Until {signal?.valid_until || 'Next 30 Mins'}
+              {signal?.valid_until || lastValidUntil || 'Next 30 Mins'}
             </strong>
           </div>
         </div>

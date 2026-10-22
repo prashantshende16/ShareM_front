@@ -12,7 +12,8 @@ import {
   BarChart3,
   Search,
   Activity,
-  Trash2
+  Trash2,
+  Sparkles
 } from 'lucide-react';
 import { api } from '../services/api';
 import { ConfidenceMeter } from '../components/ConfidenceMeter';
@@ -51,6 +52,18 @@ export const Dashboard: React.FC = () => {
     },
   });
 
+  const analyzeAllMutation = useMutation({
+    mutationFn: () => api.analyzeAllLiveMarkets(),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['recent-analyses'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      alert(data.message || 'Started live multi-timeframe analysis for all major markets!');
+    },
+    onError: (err: any) => {
+      alert(err.message || 'Failed to start multi-market analysis');
+    }
+  });
+
   const handleDelete = (e: React.MouseEvent, id: number, symbol: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -86,7 +99,7 @@ export const Dashboard: React.FC = () => {
           <p className="text-gray-300 text-sm leading-relaxed">
             Upload market charts across multiple timeframes to generate structured probabilistic scenarios, support/resistance ladders, and risk/reward setups.
           </p>
-          <div className="pt-2 flex items-center space-x-4">
+          <div className="pt-2 flex flex-wrap items-center gap-3">
             <Link
               to="/new"
               className="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-600/30 active:scale-95 text-sm"
@@ -94,6 +107,14 @@ export const Dashboard: React.FC = () => {
               <PlusCircle className="w-4 h-4" />
               <span>Create New Analysis</span>
             </Link>
+            <button
+              onClick={() => analyzeAllMutation.mutate()}
+              disabled={analyzeAllMutation.isPending}
+              className="inline-flex items-center space-x-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-900/30 active:scale-95 text-sm disabled:opacity-50"
+            >
+              <Sparkles className={`w-4 h-4 ${analyzeAllMutation.isPending ? 'animate-spin' : ''}`} />
+              <span>{analyzeAllMutation.isPending ? 'Queuing All Markets...' : '1-Click Scan All 5 Markets'}</span>
+            </button>
             <Link
               to="/history"
               className="inline-flex items-center space-x-2 bg-gray-800/80 hover:bg-gray-800 text-gray-200 font-medium px-4 py-2.5 rounded-xl border border-gray-700 text-sm transition-colors"
