@@ -36,15 +36,19 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
   const [expiryType, setExpiryType] = useState<string>(
     initialSignal?.active_expiry || initialSignal?.active_expiry_type || 'current'
   );
+  const [selectedStrike, setSelectedStrike] = useState<number | undefined>(initialSignal?.selected_strike);
   const [signal, setSignal] = useState<OptionIndicator5m | null>(initialSignal || null);
   const [loading, setLoading] = useState(!initialSignal);
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
 
-  const fetchSignal = async (sym: string, expType = expiryType) => {
+  const fetchSignal = async (sym: string, expType = expiryType, strike = selectedStrike) => {
     try {
       setLoading(true);
-      const res = await api.getOptionIndicatorSignal(sym, expType);
+      const res = await api.getOptionIndicatorSignal(sym, expType, strike);
       setSignal(res.signal);
+      if (res.signal.selected_strike) {
+        setSelectedStrike(res.signal.selected_strike);
+      }
       if (res.signal.active_expiry) {
         setExpiryType(res.signal.active_expiry);
       } else if (res.signal.active_expiry_type) {
@@ -59,14 +63,22 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
 
   const handleExpiryChange = (type: string) => {
     setExpiryType(type);
-    fetchSignal(currentSymbol, type);
+    fetchSignal(currentSymbol, type, selectedStrike);
+  };
+
+  const handleStrikeChange = (strike: number) => {
+    setSelectedStrike(strike);
+    fetchSignal(currentSymbol, expiryType, strike);
   };
 
   useEffect(() => {
     if (!initialSignal) {
-      fetchSignal(currentSymbol, expiryType);
+      fetchSignal(currentSymbol, expiryType, selectedStrike);
     } else {
       setSignal(initialSignal);
+      if (initialSignal.selected_strike) {
+        setSelectedStrike(initialSignal.selected_strike);
+      }
       if (initialSignal.active_expiry_type) {
         setExpiryType(initialSignal.active_expiry_type);
       }
@@ -250,11 +262,46 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
 
           <div className="mt-4 pt-3 border-t border-gray-800/80 flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-400 font-medium">Recommended Strike:</span>
+              <span className="text-xs text-gray-400 font-medium">Selected Contract:</span>
               <span className="text-sm font-mono font-bold text-gray-100 bg-gray-800/90 px-2.5 py-1 rounded-lg border border-gray-700">
                 {signal?.strike_suggestion || 'ATM Strike'}
               </span>
             </div>
+
+            {/* Interactive Strike Switcher */}
+            {signal?.available_strikes && signal.available_strikes.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-gray-800/60">
+                <div className="flex items-center justify-between mb-1.5 text-[11px] text-gray-400">
+                  <span className="font-semibold text-gray-300">Choose Strike:</span>
+                  <span className="font-mono text-cyan-300 font-bold">
+                    {signal.selected_strike || signal.strike_suggestion}
+                  </span>
+                </div>
+                <div className="flex gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin">
+                  {signal.available_strikes.map((stk) => {
+                    const isSel = stk.is_selected || stk.strike === selectedStrike;
+                    return (
+                      <button
+                        key={stk.strike}
+                        type="button"
+                        onClick={() => handleStrikeChange(stk.strike)}
+                        className={`px-2.5 py-1 text-[10px] font-bold rounded-lg shrink-0 transition-all font-mono text-center ${
+                          isSel
+                            ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400'
+                            : stk.is_atm
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'
+                            : 'bg-gray-900/80 text-gray-400 hover:text-gray-200 border border-gray-800'
+                        }`}
+                      >
+                        <div className="font-bold">{stk.strike}</div>
+                        <div className="text-[8px] opacity-80">{stk.tag}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Interactive Multi-Expiry Switcher (All Indian Market Expiries) */}
             <div className="mt-2 pt-2 border-t border-gray-800/60">
               <div className="flex items-center justify-between mb-1.5 text-[11px] text-gray-400">
@@ -368,7 +415,15 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
                 <span className="text-[10px] font-bold uppercase tracking-wider text-blue-300 flex items-center gap-1">
                   <Wallet className="w-3 h-3 text-cyan-400" /> Option Position & Capital
                 </span>
-                <span className="text-[10px] font-mono text-cyan-400 font-bold">1 Lot = {signal?.trade_execution?.lot_size || 65} Qty</span>
+                <div className="flex items-center gap-2">
+                  {signal?.trade_execution?.is_live_angel_one && (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Angel One Live
+                    </span>
+                  )}
+                  <span className="text-[10px] font-mono text-cyan-400 font-bold">1 Lot = {signal?.trade_execution?.lot_size || 65} Qty</span>
+                </div>
               </div>
               <div className="text-xs font-mono font-bold text-white mb-2 truncate">
                 {signal?.trade_execution?.contract_name || `${currentSymbol} ${signal?.active_expiry} ${signal?.strike_suggestion}`}
@@ -401,6 +456,24 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
                   </strong>
                 </div>
               </div>
+
+              {/* Real Market Day Stats if Available from Angel One */}
+              {signal?.trade_execution?.is_live_angel_one && (
+                <div className="mt-2 pt-2 border-t border-gray-800/60 grid grid-cols-3 gap-1 text-[10px] font-mono text-gray-300 text-center">
+                  <div className="bg-gray-900/50 p-1 rounded">
+                    <span className="text-[9px] text-gray-400 block">Day Close</span>
+                    <strong className="text-amber-300">₹{signal.trade_execution.day_close || '--'}</strong>
+                  </div>
+                  <div className="bg-gray-900/50 p-1 rounded">
+                    <span className="text-[9px] text-gray-400 block">Day High</span>
+                    <strong className="text-emerald-400">₹{signal.trade_execution.day_high || '--'}</strong>
+                  </div>
+                  <div className="bg-gray-900/50 p-1 rounded">
+                    <span className="text-[9px] text-gray-400 block">Day Low</span>
+                    <strong className="text-rose-400">₹{signal.trade_execution.day_low || '--'}</strong>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 1 Lot Capital & Max Risk Calculator */}

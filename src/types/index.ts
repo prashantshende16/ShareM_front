@@ -68,6 +68,14 @@ export interface OptionExpiryItem {
   dte?: number;
 }
 
+export interface OptionStrikeItem {
+  strike: number;
+  label: string;
+  tag: string;
+  is_atm: boolean;
+  is_selected: boolean;
+}
+
 export interface TradeExecution {
   contract_name: string;
   symbol: string;
@@ -89,6 +97,12 @@ export interface TradeExecution {
   target_1_profit: number;
   target_2_profit: number;
   risk_reward_ratio: string;
+  is_live_angel_one?: boolean;
+  day_high?: number;
+  day_low?: number;
+  day_close?: number;
+  day_open?: number;
+  tradingsymbol?: string;
 }
 
 export interface IndicatorChecklistItem {
@@ -122,6 +136,10 @@ export interface OptionIndicator5m {
   next_expiry?: string;
   is_today_expiry?: boolean;
   available_expiries?: OptionExpiryItem[];
+  available_strikes?: OptionStrikeItem[];
+  selected_strike?: number;
+  selected_option_type?: string;
+  is_live_angel_one?: boolean;
   trade_execution?: TradeExecution;
   indicator_checklist?: IndicatorChecklistItem[];
   confluence_score?: ConfluenceScore;
