@@ -21,11 +21,13 @@ import type { TradePosition, ProfileMarginData } from '../types';
 interface ActiveTradesManagerProps {
   selectedTimeframe?: string;
   onRefreshSignals?: () => void;
+  refreshTrigger?: number;
 }
 
 export const ActiveTradesManager: React.FC<ActiveTradesManagerProps> = ({
   selectedTimeframe = '5m',
   onRefreshSignals,
+  refreshTrigger = 0,
 }) => {
   const [profileMargin, setProfileMargin] = useState<ProfileMarginData | null>(null);
   const [trades, setTrades] = useState<TradePosition[]>([]);
@@ -35,6 +37,7 @@ export const ActiveTradesManager: React.FC<ActiveTradesManagerProps> = ({
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [tradeMode, setTradeMode] = useState<'PAPER' | 'LIVE'>('PAPER');
   const [batchTimeframe, setBatchTimeframe] = useState<string>(selectedTimeframe);
+  const [lastTickTime, setLastTickTime] = useState<string>('Just now');
 
   const fetchData = useCallback(async () => {
     try {
@@ -44,17 +47,20 @@ export const ActiveTradesManager: React.FC<ActiveTradesManagerProps> = ({
       ]);
       if (pmRes) setProfileMargin(pmRes);
       setTrades(tradesRes);
+      setLastTickTime(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     } catch {
       // ignore background poll errors
     }
   }, []);
 
+  // Fetch immediately on mount and on explicit refreshTrigger from card addition
   useEffect(() => {
-    setIsLoading(true);
-    fetchData().finally(() => setIsLoading(false));
+    fetchData();
+  }, [fetchData, refreshTrigger]);
 
-    // Poll every 12 seconds for live PnL and trade updates
-    const interval = setInterval(fetchData, 12000);
+  // Fast 3.5s real-time tick streaming for active trades
+  useEffect(() => {
+    const interval = setInterval(fetchData, 3500);
     return () => clearInterval(interval);
   }, [fetchData]);
 
@@ -369,7 +375,10 @@ export const ActiveTradesManager: React.FC<ActiveTradesManagerProps> = ({
               <ArrowUpRight className="w-4 h-4 text-emerald-400" />
               Active Positions ({activeTrades.length})
             </h4>
-            <span className="text-xs text-slate-400">• Dynamic Target 1 / SL Tracker</span>
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-950/70 text-emerald-300 border border-emerald-500/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Live Tick Streaming ({lastTickTime})
+            </span>
           </div>
 
           {trades.length > 0 && (
@@ -406,9 +415,30 @@ export const ActiveTradesManager: React.FC<ActiveTradesManagerProps> = ({
                   className={`p-4 rounded-xl border transition-all ${
                     isT1Booked
                       ? 'bg-emerald-950/30 border-emerald-500/50 shadow-lg shadow-emerald-950/40'
+                      : trade.is_target_1_hit
+                      ? 'bg-emerald-950/40 border-emerald-400 shadow-lg shadow-emerald-900/30'
+                      : trade.is_sl_hit
+                      ? 'bg-rose-950/40 border-rose-500 shadow-lg shadow-rose-900/30'
                       : 'bg-slate-800/70 border-slate-700/80 hover:border-slate-600'
                   }`}
                 >
+                  {/* Real-time Target / SL Alerts */}
+                  {trade.is_target_1_hit && !isT1Booked && (
+                    <div className="mb-2.5 p-2 rounded-lg bg-emerald-500/20 border border-emerald-400 flex items-center justify-between text-xs animate-pulse">
+                      <div className="flex items-center gap-1.5 text-emerald-300 font-bold">
+                        <Target className="w-4 h-4 text-emerald-400" />
+                        <span>🎯 Target 1 (₹{trade.target_1}) REACHED!</span>
+                      </div>
+                      <span className="text-[10px] text-emerald-200 font-mono">Book T1 for Risk-Free SL</span>
+                    </div>
+                  )}
+                  {trade.is_sl_hit && (
+                    <div className="mb-2.5 p-2 rounded-lg bg-rose-500/20 border border-rose-500 flex items-center gap-1.5 text-xs text-rose-300 font-bold">
+                      <ShieldAlert className="w-4 h-4 text-rose-400" />
+                      <span>⚠️ Stop Loss (₹{trade.stop_loss}) Breached! Exit recommended.</span>
+                    </div>
+                  )}
+
                   {/* Card Header */}
                   <div className="flex items-start justify-between">
                     <div>
@@ -594,3 +624,4 @@ export const ActiveTradesManager: React.FC<ActiveTradesManagerProps> = ({
     </div>
   );
 };
+

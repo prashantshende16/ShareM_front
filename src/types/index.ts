@@ -502,6 +502,9 @@ export interface TradePosition {
   pnl_percentage: number;
   realized_pnl: number;
   status: 'ACTIVE' | 'TARGET_1_BOOKED' | 'TARGET_2_BOOKED' | 'STOPPED_OUT' | 'CLOSED' | 'CANCELLED';
+  is_target_1_hit?: boolean;
+  is_target_2_hit?: boolean;
+  is_sl_hit?: boolean;
   trade_mode: 'PAPER' | 'LIVE';
   angel_order_id?: string;
   notes?: string;

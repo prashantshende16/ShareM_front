@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
@@ -24,6 +24,7 @@ import { ActiveTradesManager } from '../components/ActiveTradesManager';
 
 export const Dashboard: React.FC = () => {
   const queryClient = useQueryClient();
+  const [tradesKey, setTradesKey] = useState(0);
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['dashboard-stats'],
@@ -83,10 +84,14 @@ export const Dashboard: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* 5-Min / 15-Min Intraday Option Indicator Decision Card */}
-      <OptionSignalCard symbol="NIFTY 50" allowSymbolSelect={true} />
+      <OptionSignalCard
+        symbol="NIFTY 50"
+        allowSymbolSelect={true}
+        onTradeAdded={() => setTradesKey((k) => k + 1)}
+      />
 
       {/* Active Trades & Angel One Margin Portfolio (1-Click Add 4 Trades, Book Target 1 & SL) */}
-      <ActiveTradesManager />
+      <ActiveTradesManager refreshTrigger={tradesKey} />
 
       {/* Global Market Radar (US, UK/Europe, Asia, Crude Oil, News Tally) */}
       <GlobalMarketRadar />
