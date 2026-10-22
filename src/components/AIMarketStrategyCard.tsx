@@ -236,3 +236,4 @@ export const AIMarketStrategyCard: React.FC<AIMarketStrategyCardProps> = ({
     </div>
   );
 };
+
