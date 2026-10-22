@@ -122,6 +122,84 @@ export interface ConfluenceScore {
   verdict: string;
 }
 
+export interface GlobalRadarItem {
+  name: string;
+  symbol: string;
+  region: string;
+  code: string;
+  price: number;
+  change: number;
+  change_pct: number;
+  sentiment: 'bullish' | 'bearish' | 'neutral';
+}
+
+export interface NewsTallyItem {
+  title: string;
+  date: string;
+  url: string;
+}
+
+export interface GlobalRadarData {
+  global_verdict: string;
+  global_score: number;
+  us_market_stance: string;
+  us_avg_change: number;
+  uk_market_stance: string;
+  uk_avg_change: number;
+  crude_oil_status: string;
+  us_indices: GlobalRadarItem[];
+  uk_europe_indices: GlobalRadarItem[];
+  asia_indices: GlobalRadarItem[];
+  commodities_and_forex: GlobalRadarItem[];
+  news_tally: NewsTallyItem[];
+}
+
+export interface AIMarketStrategyResponse {
+  status: string;
+  symbol: string;
+  evaluated_at: string;
+  timestamp_iso: string;
+  timeframe: string;
+  active_signal: OptionIndicator5m;
+  signal_5m_summary: {
+    decision: string;
+    direction: string;
+    confidence: number;
+    strike: string;
+    confluence_percentage: number;
+  };
+  signal_15m_summary: {
+    decision: string;
+    direction: string;
+    confidence: number;
+    strike: string;
+    confluence_percentage: number;
+  };
+  timeframe_alignment: {
+    label: string;
+    status: string;
+    is_confluent: boolean;
+  };
+  global_radar: GlobalRadarData;
+  agent_strategy: {
+    verdict: string;
+    conviction: string;
+    confidence_score: number;
+    macro_global_context: string;
+    timeframe_harmony: string;
+    technical_edge: string;
+    recommended_contract: string;
+    live_ltp: number;
+    trigger_entry: number;
+    stop_loss: number;
+    target_1: number;
+    target_2: number;
+    risk_reward: string;
+    holding_horizon: string;
+    key_catalysts_and_watchouts: string[];
+  };
+}
+
 export interface OptionIndicator5m {
   decision: string;
   direction: 'CALL' | 'PUT' | 'SIDEWAYS' | 'NEUTRAL';

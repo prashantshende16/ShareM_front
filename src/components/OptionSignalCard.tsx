@@ -16,10 +16,12 @@ import {
   CalendarCheck,
   Wallet,
   XCircle,
-  ShieldAlert
+  ShieldAlert,
+  Bot
 } from 'lucide-react';
 import { OptionIndicator5m } from '../types';
 import { api } from '../services/api';
+import { AIMarketStrategyCard } from './AIMarketStrategyCard';
 
 interface OptionSignalCardProps {
   symbol?: string;
@@ -41,18 +43,20 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
   const [allSignals, setAllSignals] = useState<Record<string, OptionIndicator5m> | null>(null);
   const [lastEvaluatedAt, setLastEvaluatedAt] = useState<string>('');
   const [lastValidUntil, setLastValidUntil] = useState<string>('');
+  const [timeframe, setTimeframe] = useState<'5m' | '15m'>('5m');
+  const [showAIAgent, setShowAIAgent] = useState(false);
   const [loading, setLoading] = useState(!initialSignal);
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
 
   const ALL_MARKET_KEYS = ['NIFTY 50', 'BANK NIFTY', 'SENSEX', 'FINNIFTY', 'MIDCPNIFTY'];
 
-  // Fetch all markets in parallel from now till next 30m horizon
-  const fetchAllMarkets = async (expType = expiryType) => {
+  // Fetch all markets in parallel from now till next horizon
+  const fetchAllMarkets = async (expType = expiryType, tf = timeframe) => {
     try {
       setLoading(true);
       setRefreshingAll(true);
-      const res = await api.getAllOptionIndicatorSignals(expType);
+      const res = await api.getAllOptionIndicatorSignals(expType, tf);
       setAllSignals(res.signals);
       setLastEvaluatedAt(res.timestamp);
       setLastValidUntil(res.valid_until);
@@ -70,18 +74,17 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
       }
     } catch (err) {
       console.error('Failed to fetch all-market option signals:', err);
-      // Fallback to single market fetch if all fails
-      fetchSingleSignal(currentSymbol, expType, selectedStrike);
+      fetchSingleSignal(currentSymbol, expType, selectedStrike, tf);
     } finally {
       setLoading(false);
       setRefreshingAll(false);
     }
   };
 
-  const fetchSingleSignal = async (sym: string, expType = expiryType, strike = selectedStrike) => {
+  const fetchSingleSignal = async (sym: string, expType = expiryType, strike = selectedStrike, tf = timeframe) => {
     try {
       setLoading(true);
-      const res = await api.getOptionIndicatorSignal(sym, expType, strike);
+      const res = await api.getOptionIndicatorSignal(sym, expType, strike, undefined, tf);
       setSignal(res.signal);
       if (res.signal.selected_strike) {
         setSelectedStrike(res.signal.selected_strike);
@@ -91,7 +94,6 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
       } else if (res.signal.active_expiry_type) {
         setExpiryType(res.signal.active_expiry_type);
       }
-      // Also update local cache for this symbol in allSignals
       setAllSignals((prev) => (prev ? { ...prev, [sym]: res.signal } : { [sym]: res.signal }));
     } catch (err) {
       console.error('Failed to fetch option signal:', err);
@@ -112,18 +114,23 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
         setExpiryType(targetSig.active_expiry);
       }
     } else {
-      fetchSingleSignal(sym, expiryType);
+      fetchSingleSignal(sym, expiryType, undefined, timeframe);
     }
   };
 
   const handleExpiryChange = (type: string) => {
     setExpiryType(type);
-    fetchSingleSignal(currentSymbol, type, selectedStrike);
+    fetchSingleSignal(currentSymbol, type, selectedStrike, timeframe);
   };
 
   const handleStrikeChange = (strike: number) => {
     setSelectedStrike(strike);
-    fetchSingleSignal(currentSymbol, expiryType, strike);
+    fetchSingleSignal(currentSymbol, expiryType, strike, timeframe);
+  };
+
+  const handleTimeframeChange = (tf: '5m' | '15m') => {
+    setTimeframe(tf);
+    fetchAllMarkets(expiryType, tf);
   };
 
   useEffect(() => {
@@ -206,29 +213,79 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
           </div>
         </div>
 
-        {/* Quick Instrument & Refresh Controls */}
+        {/* Timeframe Duration Switcher, AI Agent & Refresh Controls */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* 5m vs 15m Duration Toggle */}
+          <div className="flex items-center bg-gray-900/90 p-1 rounded-xl border border-gray-700 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => handleTimeframeChange('5m')}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                timeframe === '5m'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <span>5m Scalp</span>
+              <span className="text-[9px] opacity-75 font-mono">(15-30m)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTimeframeChange('15m')}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                timeframe === '15m'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <span>15m Swing</span>
+              <span className="text-[9px] opacity-75 font-mono">(30-90m)</span>
+            </button>
+          </div>
+
+          {/* Gemini AI Agent Toggle */}
           <button
-            onClick={() => fetchAllMarkets(expiryType)}
-            disabled={loading}
-            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold transition-all shadow-lg shadow-blue-600/30 active:scale-95 flex items-center gap-2 text-xs"
-            title="Recalculate Next Horizon for All 5 Indian Markets in Parallel"
+            type="button"
+            onClick={() => setShowAIAgent(!showAIAgent)}
+            className={`px-3 py-2 rounded-xl border transition-all text-xs font-bold flex items-center gap-1.5 ${
+              showAIAgent
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-purple-400 shadow-lg shadow-purple-950/40'
+                : 'bg-purple-950/30 text-purple-300 border-purple-500/30 hover:bg-purple-900/40'
+            }`}
+            title="Institutional Gemini AI Market Strategy Agent"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshingAll ? 'animate-spin' : ''}`} />
-            <span>{refreshingAll ? 'Analyzing All Markets...' : 'Refresh All Markets'}</span>
+            <Bot className="w-4 h-4 text-purple-300" />
+            <span>{showAIAgent ? 'Hide AI Agent' : 'Gemini AI Strategy'}</span>
           </button>
 
           <button
-            onClick={() => fetchSingleSignal(currentSymbol, expiryType, selectedStrike)}
+            onClick={() => fetchAllMarkets(expiryType, timeframe)}
+            disabled={loading}
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold transition-all shadow-lg shadow-blue-600/30 active:scale-95 flex items-center gap-2 text-xs"
+            title={`Recalculate ${timeframe} Horizon for All 5 Indian Markets in Parallel`}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshingAll ? 'animate-spin' : ''}`} />
+            <span>{refreshingAll ? 'Scanning...' : 'Refresh All'}</span>
+          </button>
+
+          <button
+            onClick={() => fetchSingleSignal(currentSymbol, expiryType, selectedStrike, timeframe)}
             disabled={loading}
             className="p-2 rounded-xl bg-gray-800/80 hover:bg-gray-700 text-gray-300 transition-colors border border-gray-700 flex items-center gap-1.5 text-xs font-semibold"
-            title={`Refresh only ${currentSymbol}`}
+            title={`Refresh only ${currentSymbol} (${timeframe})`}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading && !refreshingAll ? 'animate-spin text-cyan-400' : ''}`} />
-            <span className="hidden sm:inline">Active Only</span>
+            <span className="hidden sm:inline">Active</span>
           </button>
         </div>
       </div>
+
+      {/* Embedded Gemini AI Market Strategy Agent Panel if active */}
+      {showAIAgent && (
+        <div className="mb-5 animate-in fade-in duration-300">
+          <AIMarketStrategyCard symbol={currentSymbol} timeframe={timeframe} expiryType={expiryType} />
+        </div>
+      )}
 
       {/* ALL MARKETS LIVE HORIZON STRIP */}
       <div className="mb-5 p-3.5 rounded-2xl bg-gray-950/60 border border-gray-800/90">
@@ -236,7 +293,7 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-cyan-400" />
             <span className="text-xs font-bold text-white tracking-wide uppercase font-mono">
-              All Major Markets • Next 30-Min Horizon
+              All Major Markets • {timeframe === '15m' ? '15-Min (60m Horizon)' : '5-Min (30m Horizon)'}
             </span>
           </div>
           <span className="text-[10px] text-gray-400 font-mono">
@@ -638,18 +695,18 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
         </div>
       </div>
 
-      {/* 6-INDICATOR OBSERVATION CONFLUENCE CHECKLIST */}
+      {/* MULTI-INDICATOR OBSERVATION CONFLUENCE CHECKLIST */}
       <div className="mt-4 bg-[#1e293b]/60 border border-gray-800 rounded-2xl p-4">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2 border-b border-gray-800">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
             <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-              6-Indicator Technical Confluence Checklist
+              {signal?.indicator_checklist?.length || 10}-Indicator Confluence Checklist ({signal?.timeframe || '5 Minute'})
             </h3>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
-              {signal?.confluence_score?.confirmed || 4} / 6 Confirmed ({signal?.confluence_score?.percentage || 67}%)
+              {signal?.confluence_score?.confirmed || 7} / {signal?.confluence_score?.total || 10} Confirmed ({signal?.confluence_score?.percentage || 70}%)
             </span>
             <span className="text-[11px] text-gray-400 font-medium">
               {signal?.confluence_score?.verdict || 'Good Confluence Setup'}

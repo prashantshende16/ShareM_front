@@ -220,32 +220,61 @@ export const api = {
     symbol = 'NIFTY 50',
     expiryType = 'current',
     strike?: number,
-    optionType?: string
+    optionType?: string,
+    timeframe = '5m'
   ): Promise<{
     status: string;
     symbol: string;
     yf_symbol: string;
     expiry_type?: string;
+    timeframe?: string;
     signal: OptionIndicator5m;
   }> {
-    let url = `${API_BASE}/market/option-signal?symbol=${encodeURIComponent(symbol)}&expiry_type=${encodeURIComponent(expiryType)}`;
+    let url = `${API_BASE}/market/option-signal?symbol=${encodeURIComponent(symbol)}&expiry_type=${encodeURIComponent(expiryType)}&timeframe=${encodeURIComponent(timeframe)}`;
     if (strike) url += `&strike=${strike}`;
     if (optionType) url += `&option_type=${encodeURIComponent(optionType)}`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error('Failed to fetch 5-min option indicator signal');
+    if (!res.ok) throw new Error('Failed to fetch option indicator signal');
     return res.json();
   },
 
-  async getAllOptionIndicatorSignals(expiryType = 'current'): Promise<{
+  async getAllOptionIndicatorSignals(expiryType = 'current', timeframe = '5m'): Promise<{
     status: string;
     timestamp: string;
     timestamp_iso: string;
     valid_until: string;
+    timeframe?: string;
     total_markets: number;
     signals: Record<string, OptionIndicator5m>;
   }> {
-    const res = await fetch(`${API_BASE}/market/all-option-signals?expiry_type=${encodeURIComponent(expiryType)}`);
+    const res = await fetch(`${API_BASE}/market/all-option-signals?expiry_type=${encodeURIComponent(expiryType)}&timeframe=${encodeURIComponent(timeframe)}`);
     if (!res.ok) throw new Error('Failed to fetch all-market option signals');
+    return res.json();
+  },
+
+  async getGlobalRadar(): Promise<{
+    status: string;
+    data: import('../types').GlobalRadarData;
+  }> {
+    const res = await fetch(`${API_BASE}/market/global-radar`);
+    if (!res.ok) throw new Error('Failed to fetch global market radar');
+    return res.json();
+  },
+
+  async getAIMarketStrategy(
+    symbol = 'NIFTY 50',
+    timeframe = '5m',
+    expiryType = 'current'
+  ): Promise<import('../types').AIMarketStrategyResponse> {
+    const res = await fetch(`${API_BASE}/market/ai-strategy-agent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol, timeframe, expiry_type: expiryType }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to execute AI market strategy agent');
+    }
     return res.json();
   },
 

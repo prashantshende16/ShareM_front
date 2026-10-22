@@ -19,6 +19,7 @@ import { api } from '../services/api';
 import { ConfidenceMeter } from '../components/ConfidenceMeter';
 import { LiveMarketTicker } from '../components/LiveMarketTicker';
 import { OptionSignalCard } from '../components/OptionSignalCard';
+import { GlobalMarketRadar } from '../components/GlobalMarketRadar';
 
 export const Dashboard: React.FC = () => {
   const queryClient = useQueryClient();
@@ -80,8 +81,11 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      {/* 5-Min Intraday Option Indicator Decision Card */}
+      {/* 5-Min / 15-Min Intraday Option Indicator Decision Card */}
       <OptionSignalCard symbol="NIFTY 50" allowSymbolSelect={true} />
+
+      {/* Global Market Radar (US, UK/Europe, Asia, Crude Oil, News Tally) */}
+      <GlobalMarketRadar />
 
       {/* Live Global Ticker & Sector Drivers */}
       <LiveMarketTicker />
