@@ -31,6 +31,26 @@ import { AIMarketStrategyCard } from './AIMarketStrategyCard';
 
 export type OptionTimeframe = '5m' | '15m' | '30m' | '1h';
 
+const formatDateTime = (isoString?: string | null) => {
+  if (!isoString) return '--';
+  try {
+    const dateStr = isoString.endsWith('Z') || isoString.includes('+') ? isoString : `${isoString}Z`;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return isoString;
+    return d.toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return isoString;
+  }
+};
+
 interface OptionSignalCardProps {
   symbol?: string;
   initialSignal?: OptionIndicator5m;
@@ -1116,6 +1136,12 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
                           <div className="text-[10px] text-slate-400 font-mono mt-0.5">
                             Entry: <strong className="text-emerald-300">₹{pos.entry_price}</strong> • LTP: <strong className="text-cyan-300">₹{pos.current_ltp}</strong> • {pos.lots} Lot ({pos.quantity} Qty)
                           </div>
+                          {(pos.entry_time || pos.created_at) && (
+                            <div className="text-[9px] text-sky-400 font-mono mt-1 flex items-center gap-1">
+                              <Clock className="w-2.5 h-2.5 text-sky-400" />
+                              <span>Added: <strong>{formatDateTime(pos.entry_time || pos.created_at)}</strong></span>
+                            </div>
+                          )}
                         </div>
 
                         <div className="text-right shrink-0">

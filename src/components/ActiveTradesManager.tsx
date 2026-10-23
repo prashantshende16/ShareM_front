@@ -13,10 +13,53 @@ import {
   XCircle,
   AlertCircle,
   CheckCircle2,
-  Lock
+  Lock,
+  Clock,
+  Calendar
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { TradePosition, ProfileMarginData } from '../types';
+
+const formatDateTime = (isoString?: string | null) => {
+  if (!isoString) return '--';
+  try {
+    const dateStr = isoString.endsWith('Z') || isoString.includes('+') ? isoString : `${isoString}Z`;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return isoString;
+    return d.toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return isoString;
+  }
+};
+
+const formatDuration = (startIso?: string | null, endIso?: string | null) => {
+  if (!startIso) return null;
+  try {
+    const sStr = startIso.endsWith('Z') || startIso.includes('+') ? startIso : `${startIso}Z`;
+    const start = new Date(sStr).getTime();
+    const end = endIso
+      ? new Date(endIso.endsWith('Z') || endIso.includes('+') ? endIso : `${endIso}Z`).getTime()
+      : Date.now();
+    const diffSec = Math.max(0, Math.floor((end - start) / 1000));
+    if (diffSec < 60) return `${diffSec}s`;
+    const mins = Math.floor(diffSec / 60);
+    const secs = diffSec % 60;
+    if (mins < 60) return `${mins}m ${secs}s`;
+    const hrs = Math.floor(mins / 60);
+    const remMins = mins % 60;
+    return `${hrs}h ${remMins}m`;
+  } catch {
+    return null;
+  }
+};
 
 interface ActiveTradesManagerProps {
   selectedTimeframe?: string;
@@ -464,6 +507,19 @@ export const ActiveTradesManager: React.FC<ActiveTradesManagerProps> = ({
                       <h5 className="font-extrabold text-sm sm:text-base text-white mt-1">
                         {trade.contract_name}
                       </h5>
+
+                      {/* Trade Added Date & Time */}
+                      <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[11px] font-mono">
+                        <span className="inline-flex items-center gap-1 bg-slate-900/90 text-sky-300 px-2 py-0.5 rounded border border-slate-700/80">
+                          <Clock className="w-3 h-3 text-sky-400" />
+                          <span>Added: <strong className="text-white">{formatDateTime(trade.entry_time || trade.created_at)}</strong></span>
+                        </span>
+                        {(trade.entry_time || trade.created_at) && (
+                          <span className="text-[10px] text-slate-400">
+                            (Elapsed: {formatDuration(trade.entry_time || trade.created_at, null)})
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Live PnL Pill */}
@@ -589,33 +645,81 @@ export const ActiveTradesManager: React.FC<ActiveTradesManagerProps> = ({
 
       {/* Past Closed Positions Accordion */}
       {pastTrades.length > 0 && (
-        <details className="mt-5 pt-4 border-t border-slate-800 group">
+        <details className="mt-5 pt-4 border-t border-slate-800 group" open>
           <summary className="text-xs font-bold text-slate-400 cursor-pointer flex items-center justify-between hover:text-white">
-            <span>Closed / Realized Trades ({pastTrades.length})</span>
-            <span className="text-emerald-400 font-mono">
-              Total Realized: +₹{totalRealized.toLocaleString('en-IN')}
+            <span className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-slate-400" />
+              <span>Closed / Realized Trades ({pastTrades.length})</span>
+            </span>
+            <span className="text-emerald-400 font-mono font-bold">
+              Total Realized: {totalRealized >= 0 ? '+' : ''}₹{totalRealized.toLocaleString('en-IN')}
             </span>
           </summary>
-          <div className="mt-3 divide-y divide-slate-800/60">
+          <div className="mt-3 space-y-2.5">
             {pastTrades.map((t) => (
-              <div key={t.id} className="py-2.5 flex items-center justify-between text-xs">
+              <div
+                key={t.id}
+                className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/60 hover:border-slate-600 transition flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
+              >
                 <div>
-                  <span className="font-bold text-white mr-2">{t.contract_name}</span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400 font-mono">
-                    {t.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-white text-sm">{t.contract_name}</span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        t.status === 'TARGET_2_BOOKED'
+                          ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                          : t.realized_pnl >= 0
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                      }`}
+                    >
+                      {t.status.replace(/_/g, ' ')}
+                    </span>
+                    <span className="text-[11px] font-mono text-slate-400">
+                      {t.lots} Lot ({t.quantity} Qty)
+                    </span>
+                  </div>
+
+                  {/* Added Date & Time and Exited Date & Time */}
+                  <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] font-mono">
+                    <div className="flex items-center gap-1.5 text-slate-300 bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800">
+                      <Clock className="w-3 h-3 text-emerald-400" />
+                      <span className="text-slate-400">Added:</span>
+                      <strong className="text-emerald-300">{formatDateTime(t.entry_time || t.created_at)}</strong>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-slate-300 bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800">
+                      <XCircle className="w-3 h-3 text-rose-400" />
+                      <span className="text-slate-400">Exited:</span>
+                      <strong className="text-rose-300">{formatDateTime(t.exit_time || t.created_at)}</strong>
+                    </div>
+
+                    {(t.entry_time || t.created_at) && (t.exit_time || t.created_at) && (
+                      <span className="text-[10px] text-slate-400 font-sans">
+                        (Held: <strong className="text-slate-300">{formatDuration(t.entry_time || t.created_at, t.exit_time || t.created_at)}</strong>)
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`font-mono font-bold ${
-                      t.realized_pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                    }`}
-                  >
-                    {t.realized_pnl >= 0 ? '+' : ''}₹{t.realized_pnl.toLocaleString('en-IN')}
-                  </span>
+
+                <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-700/50">
+                  <div className="text-left md:text-right">
+                    <div
+                      className={`font-mono font-black text-sm ${
+                        t.realized_pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                      }`}
+                    >
+                      {t.realized_pnl >= 0 ? '+' : ''}₹{t.realized_pnl.toLocaleString('en-IN')}
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-mono">
+                      Entry: ₹{t.entry_price} → Exit: ₹{t.current_ltp}
+                    </div>
+                  </div>
+
                   <button
                     onClick={() => handleDeleteTrade(t.id)}
-                    className="text-slate-500 hover:text-rose-400"
+                    className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-700/60 transition"
+                    title="Delete trade record"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
