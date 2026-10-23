@@ -169,7 +169,7 @@ export const ActiveTradesManager: React.FC<ActiveTradesManagerProps> = ({
   const totalRealized = trades.reduce((acc, t) => acc + (t.realized_pnl || 0), 0);
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-8 shadow-xl">
+    <div id="active-trades-section" className="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-8 shadow-xl scroll-mt-20">
       {/* Notifications */}
       {notification && (
         <div
@@ -469,14 +469,18 @@ export const ActiveTradesManager: React.FC<ActiveTradesManagerProps> = ({
                     {/* Live PnL Pill */}
                     <div className="text-right">
                       <div
-                        className={`text-base font-black ${
+                        className={`text-lg font-black flex items-center justify-end gap-1 ${
                           isProfit ? 'text-emerald-400' : 'text-rose-400'
                         }`}
                       >
-                        {isProfit ? '+' : ''}₹{pnl.toLocaleString('en-IN')}
+                        {isProfit ? <TrendingUp className="w-4 h-4 inline" /> : <TrendingDown className="w-4 h-4 inline" />}
+                        <span>{isProfit ? '+' : ''}₹{pnl.toLocaleString('en-IN')}</span>
                       </div>
-                      <div className="text-[10px] text-slate-400 font-mono">
-                        LTP: <strong className="text-white">₹{trade.current_ltp}</strong>
+                      <div className="text-[10px] font-mono flex items-center justify-end gap-1.5 mt-0.5">
+                        <span className={isProfit ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                          {trade.pnl_percentage !== undefined ? `${trade.pnl_percentage > 0 ? '+' : ''}${trade.pnl_percentage}%` : ''}
+                        </span>
+                        <span className="text-slate-400">• LTP: <strong className="text-white">₹{trade.current_ltp}</strong></span>
                       </div>
                     </div>
                   </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Zap,
   TrendingUp,
@@ -21,9 +21,11 @@ import {
   AlertOctagon,
   Flame,
   BellRing,
-  Lock
+  Lock,
+  ArrowUpRight,
+  Trophy
 } from 'lucide-react';
-import { OptionIndicator5m } from '../types';
+import { OptionIndicator5m, TradePosition } from '../types';
 import { api } from '../services/api';
 import { AIMarketStrategyCard } from './AIMarketStrategyCard';
 
@@ -65,6 +67,76 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
   const [countdown, setCountdown] = useState<number>(30);
   const [showExitModal, setShowExitModal] = useState<boolean>(false);
   const [dismissedAlertTime, setDismissedAlertTime] = useState<string | null>(null);
+  const [activePositions, setActivePositions] = useState<TradePosition[]>([]);
+  const [positionActionLoading, setPositionActionLoading] = useState<number | null>(null);
+
+  const fetchActivePositions = useCallback(async () => {
+    try {
+      const trades = await api.getTrades();
+      const currentActive = trades.filter(
+        (t) =>
+          (t.status === 'ACTIVE' || t.status === 'TARGET_1_BOOKED') &&
+          (t.symbol === currentSymbol || t.contract_name?.includes(currentSymbol))
+      );
+      setActivePositions(currentActive);
+    } catch {
+      // ignore
+    }
+  }, [currentSymbol]);
+
+  useEffect(() => {
+    fetchActivePositions();
+    const interval = setInterval(fetchActivePositions, 3500);
+    return () => clearInterval(interval);
+  }, [fetchActivePositions]);
+
+  const handlePositionBookT1 = async (tradeId: number) => {
+    setPositionActionLoading(tradeId);
+    try {
+      const res = await api.bookTarget1(tradeId);
+      setTradeAddMessage(`🎯 ${res.message}`);
+      await fetchActivePositions();
+      if (onTradeAdded) onTradeAdded();
+      setTimeout(() => setTradeAddMessage(null), 4000);
+    } catch (err: any) {
+      setTradeAddMessage(`❌ ${err.message || 'Failed to book T1'}`);
+      setTimeout(() => setTradeAddMessage(null), 4000);
+    } finally {
+      setPositionActionLoading(null);
+    }
+  };
+
+  const handlePositionBookT2 = async (tradeId: number) => {
+    setPositionActionLoading(tradeId);
+    try {
+      const res = await api.bookTarget2(tradeId);
+      setTradeAddMessage(`🏆 ${res.message}`);
+      await fetchActivePositions();
+      if (onTradeAdded) onTradeAdded();
+      setTimeout(() => setTradeAddMessage(null), 4000);
+    } catch (err: any) {
+      setTradeAddMessage(`❌ ${err.message || 'Failed to book T2'}`);
+      setTimeout(() => setTradeAddMessage(null), 4000);
+    } finally {
+      setPositionActionLoading(null);
+    }
+  };
+
+  const handlePositionClose = async (tradeId: number) => {
+    setPositionActionLoading(tradeId);
+    try {
+      const res = await api.closeTrade(tradeId);
+      setTradeAddMessage(`⚡ ${res.message}`);
+      await fetchActivePositions();
+      if (onTradeAdded) onTradeAdded();
+      setTimeout(() => setTradeAddMessage(null), 4000);
+    } catch (err: any) {
+      setTradeAddMessage(`❌ ${err.message || 'Failed to close position'}`);
+      setTimeout(() => setTradeAddMessage(null), 4000);
+    } finally {
+      setPositionActionLoading(null);
+    }
+  };
 
   const ALL_MARKET_KEYS = ['NIFTY 50', 'BANK NIFTY', 'SENSEX', 'FINNIFTY', 'MIDCPNIFTY'];
 
@@ -119,9 +191,10 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
         notes: `${selectedLots} Lot (${totalQuantity} Qty @ ${effectiveLotSize}/lot) Trade from ${timeframe} Indicator Card (${signal.decision})`
       });
 
-      setTradeAddMessage(`✅ Added ${selectedLots} Lot (${totalQuantity} Qty) to Active Portfolio!`);
-      setTimeout(() => setTradeAddMessage(null), 4000);
+      setTradeAddMessage(`✅ Added ${selectedLots} Lot (${totalQuantity} Qty) to Active Portfolio! Live tracking below.`);
+      await fetchActivePositions();
       if (onTradeAdded) onTradeAdded();
+      setTimeout(() => setTradeAddMessage(null), 5000);
     } catch (err: any) {
       setTradeAddMessage(`❌ ${err.message || 'Failed to add trade'}`);
       setTimeout(() => setTradeAddMessage(null), 4000);
@@ -1004,6 +1077,129 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Live Active Position Tracker for current symbol */}
+            {activePositions.length > 0 && (
+              <div className="mt-3 p-3 rounded-xl bg-slate-900/95 border border-emerald-500/40 shadow-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span className="text-[11px] font-extrabold text-white uppercase tracking-wider">
+                      Live Position ({activePositions.length})
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById('active-trades-section');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="text-[10px] text-cyan-400 hover:text-cyan-300 font-semibold underline"
+                  >
+                    Manage in Portfolio ↓
+                  </button>
+                </div>
+
+                {activePositions.map((pos) => {
+                  const pnl = pos.unrealized_pnl || 0;
+                  const isProfit = pnl >= 0;
+                  const isT1Booked = pos.status === 'TARGET_1_BOOKED';
+                  const isPosLoading = positionActionLoading === pos.id;
+
+                  return (
+                    <div key={pos.id} className="p-2.5 rounded-lg bg-slate-800/90 border border-slate-700 text-xs">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-extrabold text-white text-xs truncate">
+                            {pos.contract_name}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                            Entry: <strong className="text-emerald-300">₹{pos.entry_price}</strong> • LTP: <strong className="text-cyan-300">₹{pos.current_ltp}</strong> • {pos.lots} Lot ({pos.quantity} Qty)
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <div className={`text-sm font-black flex items-center justify-end gap-0.5 ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {isProfit ? '▲ +' : '▼ -'}₹{Math.abs(pnl).toLocaleString('en-IN')}
+                          </div>
+                          <div className="text-[10px] font-mono text-slate-400">
+                            {pos.pnl_percentage !== undefined ? `${pos.pnl_percentage > 0 ? '+' : ''}${pos.pnl_percentage}%` : ''}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Milestone Alerts */}
+                      {pos.is_target_1_hit && !isT1Booked && (
+                        <div className="mt-1.5 p-1.5 rounded bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-[10px] font-bold flex items-center justify-between animate-pulse">
+                          <span>🎯 Target 1 (₹{pos.target_1}) REACHED!</span>
+                          <button
+                            type="button"
+                            disabled={isPosLoading}
+                            onClick={() => handlePositionBookT1(pos.id)}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-0.5 rounded text-[9px] font-black"
+                          >
+                            Book T1
+                          </button>
+                        </div>
+                      )}
+                      {pos.is_target_2_hit && (
+                        <div className="mt-1.5 p-1.5 rounded bg-indigo-500/20 border border-indigo-400 text-indigo-300 text-[10px] font-bold flex items-center justify-between">
+                          <span>🏆 Target 2 (₹{pos.target_2}) REACHED!</span>
+                          <button
+                            type="button"
+                            disabled={isPosLoading}
+                            onClick={() => handlePositionBookT2(pos.id)}
+                            className="bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-0.5 rounded text-[9px] font-black"
+                          >
+                            Book T2
+                          </button>
+                        </div>
+                      )}
+                      {pos.is_sl_hit && (
+                        <div className="mt-1.5 p-1.5 rounded bg-rose-500/20 border border-rose-400 text-rose-300 text-[10px] font-bold flex items-center justify-between">
+                          <span>🛑 Stop Loss (₹{pos.stop_loss}) HIT!</span>
+                          <button
+                            type="button"
+                            disabled={isPosLoading}
+                            onClick={() => handlePositionClose(pos.id)}
+                            className="bg-rose-600 hover:bg-rose-500 text-white px-2 py-0.5 rounded text-[9px] font-black"
+                          >
+                            Exit SL
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Quick Actions */}
+                      <div className="mt-2 pt-1.5 border-t border-slate-700/60 flex items-center justify-between text-[10px]">
+                        <span className="text-slate-400 font-mono">
+                          SL: ₹{pos.stop_loss} | T1: ₹{pos.target_1}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {!isT1Booked && (
+                            <button
+                              type="button"
+                              disabled={isPosLoading}
+                              onClick={() => handlePositionBookT1(pos.id)}
+                              className="px-1.5 py-0.5 rounded bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 font-semibold text-[9px]"
+                            >
+                              Book T1
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            disabled={isPosLoading}
+                            onClick={() => handlePositionClose(pos.id)}
+                            className="px-2 py-0.5 rounded bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-300 font-semibold"
+                          >
+                            {isPosLoading ? 'Closing...' : 'Close'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="mt-2.5 pt-2 border-t border-gray-800 flex items-center justify-between text-[11px]">

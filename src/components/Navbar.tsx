@@ -13,6 +13,15 @@ export const Navbar: React.FC = () => {
     staleTime: 60000,
   });
 
+  const { data: trades } = useQuery({
+    queryKey: ['navbar-active-trades'],
+    queryFn: () => api.getTrades(),
+    refetchInterval: 3500,
+  });
+
+  const activeTrades = trades?.filter((t) => t.status === 'ACTIVE' || t.status === 'TARGET_1_BOOKED') || [];
+  const totalUnrealized = activeTrades.reduce((acc, t) => acc + (t.unrealized_pnl || 0), 0);
+
   const isConnected = settings?.market_data_connected ?? true;
 
   return (
@@ -43,6 +52,28 @@ export const Navbar: React.FC = () => {
             {isConnected ? 'Live Feed Connected' : 'Not Connected (Vision Mode)'}
           </span>
         </div>
+
+        {/* Live Active Positions & PnL Header Pill */}
+        {activeTrades.length > 0 && (
+          <button
+            onClick={() => {
+              const el = document.getElementById('active-trades-section');
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth' });
+              } else {
+                window.location.href = '/#active-trades-section';
+              }
+            }}
+            className="flex items-center space-x-2 bg-slate-900/90 hover:bg-slate-800 px-3 py-1.5 rounded-full border border-emerald-500/50 text-xs font-mono transition shadow-lg shadow-emerald-950/40 cursor-pointer"
+            title="Click to jump to your active trades and real-time P&L"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            <span className="text-white font-bold">{activeTrades.length} Active</span>
+            <span className={totalUnrealized >= 0 ? "text-emerald-400 font-extrabold" : "text-rose-400 font-extrabold"}>
+              {totalUnrealized >= 0 ? '+' : ''}₹{totalUnrealized.toLocaleString('en-IN')}
+            </span>
+          </button>
+        )}
 
         <Link
           to="/new"

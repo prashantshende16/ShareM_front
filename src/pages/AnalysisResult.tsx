@@ -27,12 +27,14 @@ import { ScenarioCard } from '../components/ScenarioCard';
 import { SupportResistance } from '../components/SupportResistance';
 import { ScreenshotOverlayViewer } from '../components/ScreenshotOverlayViewer';
 import { OptionSignalCard } from '../components/OptionSignalCard';
+import { ActiveTradesManager } from '../components/ActiveTradesManager';
 
 export const AnalysisResult: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedScreenshotIndex, setSelectedScreenshotIndex] = useState(0);
+  const [tradesKey, setTradesKey] = useState(0);
 
   const { data: analysis, isLoading, error } = useQuery({
     queryKey: ['analysis', id],
@@ -191,7 +193,17 @@ export const AnalysisResult: React.FC = () => {
         symbol={analysis.symbol}
         initialSignal={res.trade_setup?.option_indicator_5m}
         allowSymbolSelect={false}
+        onTradeAdded={() => {
+          setTradesKey((k) => k + 1);
+          setTimeout(() => {
+            const el = document.getElementById('active-trades-section');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }, 150);
+        }}
       />
+
+      {/* Active Trades & Real-Time Portfolio M2M */}
+      <ActiveTradesManager refreshTrigger={tradesKey} />
 
       {/* Scenario Cards Grid (Section 17) */}
       <div>
