@@ -200,6 +200,21 @@ export interface AIMarketStrategyResponse {
   };
 }
 
+export interface EmergencyExitAlert {
+  triggered: boolean;
+  severity: 'NORMAL' | 'WARNING' | 'CRITICAL';
+  type: string;
+  title: string;
+  message: string;
+  reason?: string;
+  action?: string;
+  contract?: string;
+  current_ltp?: number;
+  stop_loss?: number;
+  target_1?: number;
+  triggered_at?: string;
+}
+
 export interface OptionIndicator5m {
   decision: string;
   direction: 'CALL' | 'PUT' | 'SIDEWAYS' | 'NEUTRAL';
@@ -207,6 +222,7 @@ export interface OptionIndicator5m {
   call_score: number;
   put_score: number;
   strike_suggestion: string;
+  emergency_exit_alert?: EmergencyExitAlert;
   active_expiry?: string;
   active_expiry_type?: string;
   active_expiry_label?: string;

@@ -17,11 +17,17 @@ import {
   Wallet,
   XCircle,
   ShieldAlert,
-  Bot
+  Bot,
+  AlertOctagon,
+  Flame,
+  BellRing,
+  Lock
 } from 'lucide-react';
 import { OptionIndicator5m } from '../types';
 import { api } from '../services/api';
 import { AIMarketStrategyCard } from './AIMarketStrategyCard';
+
+export type OptionTimeframe = '5m' | '15m' | '30m' | '1h';
 
 interface OptionSignalCardProps {
   symbol?: string;
@@ -45,7 +51,7 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
   const [allSignals, setAllSignals] = useState<Record<string, OptionIndicator5m> | null>(null);
   const [lastEvaluatedAt, setLastEvaluatedAt] = useState<string>('');
   const [lastValidUntil, setLastValidUntil] = useState<string>('');
-  const [timeframe, setTimeframe] = useState<'5m' | '15m'>('5m');
+  const [timeframe, setTimeframe] = useState<OptionTimeframe>('5m');
   const [showAIAgent, setShowAIAgent] = useState(false);
   const [loading, setLoading] = useState(!initialSignal);
   const [refreshingAll, setRefreshingAll] = useState(false);
@@ -57,6 +63,8 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
   const [isEditingLotSize, setIsEditingLotSize] = useState<boolean>(false);
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
   const [countdown, setCountdown] = useState<number>(30);
+  const [showExitModal, setShowExitModal] = useState<boolean>(false);
+  const [dismissedAlertTime, setDismissedAlertTime] = useState<string | null>(null);
 
   const ALL_MARKET_KEYS = ['NIFTY 50', 'BANK NIFTY', 'SENSEX', 'FINNIFTY', 'MIDCPNIFTY'];
 
@@ -200,9 +208,56 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
     fetchSingleSignal(currentSymbol, expiryType, strike, timeframe);
   };
 
-  const handleTimeframeChange = (tf: '5m' | '15m') => {
+  const handleTimeframeChange = (tf: OptionTimeframe) => {
     setTimeframe(tf);
     fetchAllMarkets(expiryType, tf);
+  };
+
+  const playAlertSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.35);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.4);
+    } catch {
+      // Audio autoplay restrictions
+    }
+  };
+
+  // Watch for Sudden Invalidation Emergency Exit Alert
+  useEffect(() => {
+    const alert = signal?.emergency_exit_alert;
+    if (alert?.triggered) {
+      if (alert.triggered_at && alert.triggered_at !== dismissedAlertTime) {
+        setShowExitModal(true);
+        playAlertSound();
+      }
+    } else {
+      setShowExitModal(false);
+    }
+  }, [signal?.emergency_exit_alert, dismissedAlertTime]);
+
+  const handleDismissExitModal = () => {
+    if (signal?.emergency_exit_alert?.triggered_at) {
+      setDismissedAlertTime(signal.emergency_exit_alert.triggered_at);
+    }
+    setShowExitModal(false);
+  };
+
+  const handleEmergencyExitAction = () => {
+    handleDismissExitModal();
+    setTradeAddMessage(`⚡ Emergency Exit Signal Acknowledged! Capital protected.`);
+    setTimeout(() => setTradeAddMessage(null), 5000);
   };
 
   // Immediate mount + background live sync
@@ -303,31 +358,55 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
 
         {/* Timeframe Duration Switcher, AI Agent & Refresh Controls */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* 5m vs 15m Duration Toggle */}
+          {/* Multi-Timeframe Duration Switcher: 5m, 15m, 30m, 1h */}
           <div className="flex items-center bg-gray-900/90 p-1 rounded-xl border border-gray-700 text-xs font-semibold">
             <button
               type="button"
               onClick={() => handleTimeframeChange('5m')}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+              className={`px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
                 timeframe === '5m'
-                  ? 'bg-blue-600 text-white shadow-sm'
+                  ? 'bg-blue-600 text-white shadow-sm font-bold'
                   : 'text-gray-400 hover:text-gray-200'
               }`}
             >
-              <span>5m Scalp</span>
-              <span className="text-[9px] opacity-75 font-mono">(15-30m)</span>
+              <span>5m</span>
+              <span className="text-[9px] opacity-75 font-mono">Scalp</span>
             </button>
             <button
               type="button"
               onClick={() => handleTimeframeChange('15m')}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+              className={`px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
                 timeframe === '15m'
-                  ? 'bg-indigo-600 text-white shadow-sm'
+                  ? 'bg-indigo-600 text-white shadow-sm font-bold'
                   : 'text-gray-400 hover:text-gray-200'
               }`}
             >
-              <span>15m Swing</span>
-              <span className="text-[9px] opacity-75 font-mono">(30-90m)</span>
+              <span>15m</span>
+              <span className="text-[9px] opacity-75 font-mono">Intraday</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTimeframeChange('30m')}
+              className={`px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
+                timeframe === '30m'
+                  ? 'bg-purple-600 text-white shadow-sm font-bold'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <span>30m</span>
+              <span className="text-[9px] opacity-75 font-mono">Momentum</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTimeframeChange('1h')}
+              className={`px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
+                timeframe === '1h'
+                  ? 'bg-emerald-600 text-white shadow-sm font-bold'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <span>1h</span>
+              <span className="text-[9px] opacity-75 font-mono">Swing</span>
             </button>
           </div>
 
@@ -474,6 +553,56 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
           })}
         </div>
       </div>
+
+      {/* IN-CARD PERSISTENT EMERGENCY REVERSAL WARNING BANNER */}
+      {signal?.emergency_exit_alert?.triggered && (
+        <div className="mb-5 p-4 rounded-2xl bg-gradient-to-r from-rose-950/95 via-red-950/90 to-rose-950/95 border-2 border-rose-500 shadow-xl shadow-rose-950/50 animate-pulse">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-rose-600/30 border border-rose-500 flex items-center justify-center shrink-0">
+                <AlertOctagon className="w-5 h-5 text-rose-400" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase text-rose-300 tracking-wider">
+                    {signal.emergency_exit_alert.title || '🚨 EMERGENCY EXIT: SUDDEN REVERSAL DETECTED'}
+                  </span>
+                  {signal.emergency_exit_alert.triggered_at && (
+                    <span className="text-[10px] font-mono text-gray-400">
+                      ({signal.emergency_exit_alert.triggered_at})
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-rose-100 mt-0.5 leading-snug">
+                  {signal.emergency_exit_alert.message}
+                </p>
+                {signal.emergency_exit_alert.reason && (
+                  <p className="text-[11px] text-amber-300/90 font-mono mt-1">
+                    ⚡ Reason: {signal.emergency_exit_alert.reason}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              <button
+                type="button"
+                onClick={() => setShowExitModal(true)}
+                className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/40 active:scale-95"
+              >
+                View Full Alert
+              </button>
+              <button
+                type="button"
+                onClick={handleEmergencyExitAction}
+                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white text-xs font-black uppercase tracking-wide shadow-md active:scale-95 flex items-center gap-1.5"
+              >
+                <Flame className="w-3.5 h-3.5 text-amber-300" />
+                <span>Sell / Exit Trade</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PROMINENT TIMEFRAME & EXECUTION TIMESTAMP BANNER */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5 p-3.5 rounded-2xl bg-gray-900/80 border border-gray-800/90 text-xs">
@@ -711,6 +840,10 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
                       Angel One Live
                     </span>
                   )}
+                  <span className="px-1.5 py-0.5 rounded text-[9px] bg-blue-900/40 text-blue-300 border border-blue-700/50 font-mono font-bold flex items-center gap-1" title="Trade trigger, target, and stop loss are anchored per candle slot to prevent 30s jitter">
+                    <Lock className="w-2.5 h-2.5 text-blue-400" />
+                    Anchored
+                  </span>
                   <span className="text-[10px] font-mono text-cyan-400 font-bold">1 Lot = {effectiveLotSize} Qty</span>
                 </div>
               </div>
@@ -980,6 +1113,88 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
         <div className="mt-4 p-3.5 rounded-xl bg-gray-900/70 border border-gray-800 text-xs text-gray-300 leading-relaxed flex items-start gap-2.5">
           <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
           <div>{signal.summary}</div>
+        </div>
+      )}
+
+      {/* EMERGENCY EXIT / SUDDEN REVERSAL MODAL POPUP */}
+      {showExitModal && signal?.emergency_exit_alert?.triggered && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-[#180a0a] border-2 border-rose-500 rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl shadow-rose-950/80 relative overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Blinking red background glow */}
+            <div className="absolute top-0 right-0 w-48 h-48 bg-rose-500/20 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="flex items-start gap-4 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-600/30 border border-rose-500 flex items-center justify-center shrink-0 shadow-lg shadow-rose-600/40 animate-pulse">
+                <AlertOctagon className="w-7 h-7 text-rose-400 animate-bounce" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="px-2 py-0.5 rounded-full text-[9px] bg-rose-500 text-white font-black tracking-wider uppercase animate-pulse">
+                    EMERGENCY EXIT
+                  </span>
+                  <span className="text-xs font-mono text-gray-400">
+                    {signal.emergency_exit_alert.triggered_at || 'Just Now'}
+                  </span>
+                </div>
+                <h3 className="text-lg font-black text-white tracking-tight leading-snug">
+                  {signal.emergency_exit_alert.title || 'Sudden Adverse Market Reversal Detected!'}
+                </h3>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-black/60 border border-rose-500/30 mb-4 space-y-2 text-xs">
+              <p className="text-rose-200 font-medium leading-relaxed">
+                {signal.emergency_exit_alert.message}
+              </p>
+              {signal.emergency_exit_alert.reason && (
+                <div className="text-[11px] text-gray-300 font-mono bg-rose-950/40 p-2.5 rounded-xl border border-rose-900/60">
+                  <strong className="text-amber-300">Trigger Reason: </strong>
+                  {signal.emergency_exit_alert.reason}
+                </div>
+              )}
+            </div>
+
+            {/* Price Matrix */}
+            <div className="grid grid-cols-3 gap-2 mb-5 text-center font-mono text-xs">
+              <div className="bg-gray-900/80 p-2.5 rounded-xl border border-gray-800">
+                <span className="text-[9px] text-gray-400 block">Current LTP</span>
+                <strong className="text-rose-400 text-sm">
+                  ₹{signal.emergency_exit_alert.current_ltp || signal.trade_execution?.current_ltp || '--'}
+                </strong>
+              </div>
+              <div className="bg-gray-900/80 p-2.5 rounded-xl border border-gray-800">
+                <span className="text-[9px] text-gray-400 block">Stop Loss</span>
+                <strong className="text-amber-400 text-sm">
+                  ₹{signal.emergency_exit_alert.stop_loss || signal.trade_execution?.stop_loss || '--'}
+                </strong>
+              </div>
+              <div className="bg-gray-900/80 p-2.5 rounded-xl border border-gray-800">
+                <span className="text-[9px] text-gray-400 block">Target 1</span>
+                <strong className="text-emerald-400 text-sm">
+                  ₹{signal.emergency_exit_alert.target_1 || signal.trade_execution?.target_1 || '--'}
+                </strong>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={handleEmergencyExitAction}
+                className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black text-xs uppercase tracking-wide transition-all shadow-xl shadow-rose-600/40 active:scale-95 flex items-center justify-center gap-2"
+              >
+                <Flame className="w-4 h-4 text-amber-300" />
+                <span>SELL / EXIT TRADE NOW</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDismissExitModal}
+                className="py-3 px-4 rounded-xl bg-gray-800/80 hover:bg-gray-700 text-gray-300 font-semibold text-xs transition-colors border border-gray-700 active:scale-95"
+              >
+                Dismiss / I'm Holding
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
