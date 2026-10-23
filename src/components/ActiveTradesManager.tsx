@@ -300,7 +300,7 @@ export const ActiveTradesManager: React.FC<ActiveTradesManagerProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-300 mt-0.5">
-              Instantly scans live option contracts, enters buy triggers, configures Stop Loss, and sets up 1st & 2nd Target profit booking.
+              1 Lot Each: SENSEX (20 Qty) • BANK NIFTY (60 Qty) • NIFTY 50 (65 Qty) • FINNIFTY (65 Qty). Pre-sets Trigger Entry, Stop Loss, and 1st & 2nd Target booking.
             </p>
           </div>
         </div>

@@ -52,8 +52,32 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
   const [isAddingSingleTrade, setIsAddingSingleTrade] = useState(false);
   const [tradeAddMessage, setTradeAddMessage] = useState<string | null>(null);
+  const [selectedLots, setSelectedLots] = useState<number>(1);
+  const [customLotSize, setCustomLotSize] = useState<number | null>(null);
+  const [isEditingLotSize, setIsEditingLotSize] = useState<boolean>(false);
 
   const ALL_MARKET_KEYS = ['NIFTY 50', 'BANK NIFTY', 'SENSEX', 'FINNIFTY', 'MIDCPNIFTY'];
+
+  const defaultLotSize = currentSymbol.includes('SENSEX')
+    ? 20
+    : currentSymbol.includes('BANK')
+    ? 60
+    : currentSymbol.includes('MID')
+    ? 75
+    : 65;
+
+  const effectiveLotSize = customLotSize || signal?.trade_execution?.lot_size || defaultLotSize;
+  const totalQuantity = selectedLots * effectiveLotSize;
+
+  const entryPrice = signal?.trade_execution?.recommended_entry || 100;
+  const stopLoss = signal?.trade_execution?.stop_loss || Math.round(entryPrice * 0.8);
+  const target1 = signal?.trade_execution?.target_1 || Math.round(entryPrice * 1.25);
+  const target2 = signal?.trade_execution?.target_2 || Math.round(entryPrice * 1.5);
+
+  const calcCapitalRequired = Math.round(totalQuantity * entryPrice);
+  const calcMaxRisk = Math.round(totalQuantity * Math.max(0, entryPrice - stopLoss));
+  const calcTarget1Profit = Math.round(totalQuantity * Math.max(0, target1 - entryPrice));
+  const calcTarget2Profit = Math.round(totalQuantity * Math.max(0, target2 - entryPrice));
 
   const handleAddSingleTrade = async () => {
     if (!signal) return;
@@ -61,12 +85,7 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
     setTradeAddMessage(null);
     try {
       const exec = signal.trade_execution;
-      const entryPrice = exec?.recommended_entry || 100;
       const ltp = exec?.current_ltp || entryPrice;
-      const sl = exec?.stop_loss || Math.round(entryPrice * 0.8);
-      const t1 = exec?.target_1 || Math.round(entryPrice * 1.25);
-      const t2 = exec?.target_2 || Math.round(entryPrice * 1.5);
-      const lotSize = exec?.lot_size || 25;
 
       await api.createTrade({
         symbol: currentSymbol,
@@ -79,18 +98,18 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
         strike_price: signal.selected_strike,
         expiry: signal.active_expiry,
         timeframe: timeframe,
-        lots: 1,
-        lot_size: lotSize,
+        lots: selectedLots,
+        lot_size: effectiveLotSize,
         entry_price: entryPrice,
         current_ltp: ltp,
-        stop_loss: sl,
-        target_1: t1,
-        target_2: t2,
+        stop_loss: stopLoss,
+        target_1: target1,
+        target_2: target2,
         trade_mode: 'PAPER',
-        notes: `1-Lot Trade from ${timeframe} Indicator Card (${signal.decision})`
+        notes: `${selectedLots} Lot (${totalQuantity} Qty @ ${effectiveLotSize}/lot) Trade from ${timeframe} Indicator Card (${signal.decision})`
       });
 
-      setTradeAddMessage('✅ Trade added to Active Portfolio!');
+      setTradeAddMessage(`✅ Added ${selectedLots} Lot (${totalQuantity} Qty) to Active Portfolio!`);
       setTimeout(() => setTradeAddMessage(null), 4000);
       if (onTradeAdded) onTradeAdded();
     } catch (err: any) {
@@ -653,7 +672,7 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
                       Angel One Live
                     </span>
                   )}
-                  <span className="text-[10px] font-mono text-cyan-400 font-bold">1 Lot = {signal?.trade_execution?.lot_size || 65} Qty</span>
+                  <span className="text-[10px] font-mono text-cyan-400 font-bold">1 Lot = {effectiveLotSize} Qty</span>
                 </div>
               </div>
               <div className="text-xs font-mono font-bold text-white mb-2 truncate">
@@ -707,30 +726,87 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
               )}
             </div>
 
-            {/* 1 Lot Capital & Max Risk Calculator */}
+            {/* Interactive Lot Count & Quantity Adjuster Toolbar */}
+            <div className="mb-2 p-2 rounded-xl bg-gray-900/80 border border-gray-800 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="text-gray-400 font-medium text-[11px]">Lots:</span>
+                <div className="flex items-center bg-gray-800 rounded-lg p-0.5 border border-gray-700">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLots(Math.max(1, selectedLots - 1))}
+                    className="w-5 h-5 rounded bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center font-bold text-xs"
+                  >
+                    -
+                  </button>
+                  <span className="px-2 font-mono font-bold text-white text-xs">{selectedLots} Lot{selectedLots > 1 ? 's' : ''}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLots(selectedLots + 1)}
+                    className="w-5 h-5 rounded bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center font-bold text-xs"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-gray-400 font-medium text-[11px]">Qty/Lot:</span>
+                {isEditingLotSize ? (
+                  <input
+                    type="number"
+                    value={effectiveLotSize}
+                    onChange={(e) => setCustomLotSize(Math.max(1, parseInt(e.target.value) || 1))}
+                    onBlur={() => setIsEditingLotSize(false)}
+                    autoFocus
+                    className="w-14 bg-gray-800 text-center font-mono font-bold text-emerald-300 rounded border border-emerald-500 text-xs py-0.5"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingLotSize(true)}
+                    title="Click to customize quantity per lot"
+                    className="px-2 py-0.5 rounded bg-blue-950/70 border border-blue-700 text-cyan-300 font-mono font-bold text-xs hover:border-cyan-400 flex items-center gap-1"
+                  >
+                    <span>{effectiveLotSize} Qty</span>
+                    <span className="text-[10px] text-gray-400">✎</span>
+                  </button>
+                )}
+                <span className="text-gray-400 font-mono text-[10px]">(= {totalQuantity})</span>
+              </div>
+            </div>
+
+            {/* Dynamic Capital & Max Risk Calculator */}
             <div className="p-2.5 rounded-xl bg-gray-900/70 border border-gray-800/80 space-y-1.5 text-[11px]">
               <div className="flex items-center justify-between">
-                <span className="text-gray-400 font-medium">Capital Required (1 Lot):</span>
-                <strong className="font-mono text-cyan-200 font-bold">
-                  ₹{signal?.trade_execution?.capital_required?.toLocaleString() || (65 * 38).toLocaleString()}
+                <span className="text-gray-400 font-medium">
+                  Capital Required ({selectedLots} Lot{selectedLots > 1 ? 's' : ''} • {totalQuantity} Qty):
+                </span>
+                <strong className="font-mono text-cyan-200 font-bold text-xs">
+                  ₹{calcCapitalRequired.toLocaleString('en-IN')}
                 </strong>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-400 font-medium">Max Risk (1 Lot Loss Limit):</span>
-                <strong className="font-mono text-rose-400 font-bold">
-                  -₹{signal?.trade_execution?.max_risk_amount?.toLocaleString() || (65 * 8).toLocaleString()}
+                <span className="text-gray-400 font-medium">
+                  Max Risk ({selectedLots} Lot{selectedLots > 1 ? 's' : ''} Loss Limit):
+                </span>
+                <strong className="font-mono text-rose-400 font-bold text-xs">
+                  -₹{calcMaxRisk.toLocaleString('en-IN')}
                 </strong>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-400 font-medium">Target 1 Profit (1 Lot):</span>
-                <strong className="font-mono text-emerald-400 font-bold">
-                  +₹{signal?.trade_execution?.target_1_profit?.toLocaleString() || (65 * 10).toLocaleString()}
+                <span className="text-gray-400 font-medium">
+                  Target 1 Profit ({selectedLots} Lot{selectedLots > 1 ? 's' : ''}):
+                </span>
+                <strong className="font-mono text-emerald-400 font-bold text-xs">
+                  +₹{calcTarget1Profit.toLocaleString('en-IN')}
                 </strong>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-400 font-medium">Target 2 Profit (1 Lot):</span>
-                <strong className="font-mono text-emerald-300 font-bold">
-                  +₹{signal?.trade_execution?.target_2_profit?.toLocaleString() || (65 * 24).toLocaleString()}
+                <span className="text-gray-400 font-medium">
+                  Target 2 Profit ({selectedLots} Lot{selectedLots > 1 ? 's' : ''}):
+                </span>
+                <strong className="font-mono text-emerald-300 font-bold text-xs">
+                  +₹{calcTarget2Profit.toLocaleString('en-IN')}
                 </strong>
               </div>
             </div>
@@ -741,10 +817,14 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
                 type="button"
                 disabled={isAddingSingleTrade}
                 onClick={handleAddSingleTrade}
-                className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 transition disabled:opacity-50"
+                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 transition disabled:opacity-50"
               >
                 <Zap className="w-3.5 h-3.5 fill-current" />
-                <span>{isAddingSingleTrade ? 'Adding Trade...' : `⚡ Add ${currentSymbol} Trade (1 Lot)`}</span>
+                <span>
+                  {isAddingSingleTrade
+                    ? 'Adding Trade...'
+                    : `⚡ Add ${currentSymbol} Trade (${selectedLots} Lot = ${totalQuantity} Qty)`}
+                </span>
               </button>
               {tradeAddMessage && (
                 <div className="text-[10px] text-center font-bold mt-1 text-emerald-300">
