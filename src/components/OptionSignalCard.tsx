@@ -55,6 +55,8 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
   const [selectedLots, setSelectedLots] = useState<number>(1);
   const [customLotSize, setCustomLotSize] = useState<number | null>(null);
   const [isEditingLotSize, setIsEditingLotSize] = useState<boolean>(false);
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
+  const [countdown, setCountdown] = useState<number>(30);
 
   const ALL_MARKET_KEYS = ['NIFTY 50', 'BANK NIFTY', 'SENSEX', 'FINNIFTY', 'MIDCPNIFTY'];
 
@@ -129,6 +131,7 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
       setAllSignals(res.signals);
       setLastEvaluatedAt(res.timestamp);
       setLastValidUntil(res.valid_until);
+      setCountdown(30);
 
       // Select current market's signal, or default to NIFTY 50
       const activeSig = res.signals[currentSymbol] || res.signals['NIFTY 50'] || Object.values(res.signals)[0];
@@ -202,10 +205,9 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
     fetchAllMarkets(expiryType, tf);
   };
 
+  // Immediate mount + background live sync
   useEffect(() => {
-    if (!initialSignal) {
-      fetchAllMarkets(expiryType);
-    } else {
+    if (initialSignal) {
       setSignal(initialSignal);
       if (initialSignal.selected_strike) {
         setSelectedStrike(initialSignal.selected_strike);
@@ -214,9 +216,26 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
         setExpiryType(initialSignal.active_expiry_type);
       }
     }
+    // Always trigger live market refresh on mount to ensure real-time data
+    fetchAllMarkets(expiryType, timeframe);
   }, [initialSignal]);
 
-  // Update live elapsed time every 30 seconds
+  // Periodic 30s Auto-Sync countdown
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          fetchAllMarkets(expiryType, timeframe);
+          return 30;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [autoRefresh, expiryType, timeframe, currentSymbol]);
+
+  // Update live elapsed time every 10 seconds
   useEffect(() => {
     const updateElapsed = () => {
       if (!signal?.generated_at_iso) {
@@ -230,7 +249,7 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
     };
 
     updateElapsed();
-    const interval = setInterval(updateElapsed, 30000);
+    const interval = setInterval(updateElapsed, 10000);
     return () => clearInterval(interval);
   }, [signal]);
 
@@ -327,6 +346,21 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
             <span>{showAIAgent ? 'Hide AI Agent' : 'Gemini AI Strategy'}</span>
           </button>
 
+          {/* Auto-Sync Toggle & Countdown */}
+          <button
+            type="button"
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            className={`px-3 py-2 rounded-xl border transition-all text-xs font-semibold flex items-center gap-1.5 ${
+              autoRefresh
+                ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/40 shadow-sm shadow-emerald-950/30'
+                : 'bg-gray-800/80 text-gray-400 border-gray-700 hover:text-gray-200'
+            }`}
+            title="Toggle Live 30-Second Auto Refresh"
+          >
+            <span className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
+            <span>{autoRefresh ? `Live Sync: ${countdown}s` : 'Live Sync: OFF'}</span>
+          </button>
+
           <button
             onClick={() => fetchAllMarkets(expiryType, timeframe)}
             disabled={loading}
@@ -365,9 +399,14 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
               All Major Markets • {timeframe === '15m' ? '15-Min (60m Horizon)' : '5-Min (30m Horizon)'}
             </span>
           </div>
-          <span className="text-[10px] text-gray-400 font-mono">
-            {lastEvaluatedAt ? `Synced at ${lastEvaluatedAt}` : 'Live Parallel Evaluation'} • Click to view details
-          </span>
+          <div className="flex items-center gap-2 text-[10px] text-gray-400 font-mono">
+            <span className="inline-flex items-center gap-1 text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60 font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+              Live Feed
+            </span>
+            <span>{lastEvaluatedAt ? `Synced at ${lastEvaluatedAt}` : 'Live Parallel Evaluation'}</span>
+            <span className="hidden md:inline text-gray-500">• Click to select</span>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">

@@ -16,7 +16,7 @@ export const App: React.FC = () => {
       <Navbar />
       <div className="flex-1 flex overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8 max-w-7xl mx-auto w-full">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 w-full max-w-full">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/new" element={<NewAnalysis />} />
