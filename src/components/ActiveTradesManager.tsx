@@ -332,7 +332,11 @@ export const ActiveTradesManager: React.FC<ActiveTradesManagerProps> = ({
       return pastTrades;
     }
     const target = selectedDate === 'TODAY' ? todayKey : selectedDate === 'YESTERDAY' ? yesterdayKey : selectedDate;
-    return pastTrades.filter((t) => getLocalDateString(t.entry_time || t.created_at) === target);
+    return pastTrades.filter((t) => {
+      const exitDate = getLocalDateString(t.exit_time);
+      const entryDate = getLocalDateString(t.entry_time || t.created_at);
+      return exitDate === target || entryDate === target;
+    });
   }, [pastTrades, selectedDate, todayKey, yesterdayKey]);
 
   const groupedActiveTrades = useMemo(() => {

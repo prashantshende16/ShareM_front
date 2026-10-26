@@ -21,6 +21,7 @@ export const Navbar: React.FC = () => {
 
   const activeTrades = trades?.filter((t) => t.status === 'ACTIVE' || t.status === 'TARGET_1_BOOKED') || [];
   const totalUnrealized = activeTrades.reduce((acc, t) => acc + (t.unrealized_pnl || 0), 0);
+  const totalRealized = trades?.reduce((acc, t) => acc + (t.realized_pnl || 0), 0) || 0;
 
   const isConnected = settings?.market_data_connected ?? true;
 
@@ -53,8 +54,8 @@ export const Navbar: React.FC = () => {
           </span>
         </div>
 
-        {/* Live Active Positions & PnL Header Pill */}
-        {activeTrades.length > 0 && (
+        {/* Live Positions & PnL Header Pill */}
+        {trades && trades.length > 0 && (
           <button
             onClick={() => {
               const el = document.getElementById('active-trades-section');
@@ -64,14 +65,26 @@ export const Navbar: React.FC = () => {
                 window.location.href = '/#active-trades-section';
               }
             }}
-            className="flex items-center space-x-2 bg-slate-900/90 hover:bg-slate-800 px-3 py-1.5 rounded-full border border-emerald-500/50 text-xs font-mono transition shadow-lg shadow-emerald-950/40 cursor-pointer"
-            title="Click to jump to your active trades and real-time P&L"
+            className="flex items-center space-x-2 bg-slate-900/90 hover:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700 hover:border-slate-500 text-xs font-mono transition shadow-lg cursor-pointer"
+            title="Click to jump to your trade positions & realized history"
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-            <span className="text-white font-bold">{activeTrades.length} Active</span>
-            <span className={totalUnrealized >= 0 ? "text-emerald-400 font-extrabold" : "text-rose-400 font-extrabold"}>
-              {totalUnrealized >= 0 ? '+' : ''}₹{totalUnrealized.toLocaleString('en-IN')}
-            </span>
+            {activeTrades.length > 0 ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                <span className="text-white font-bold">{activeTrades.length} Active</span>
+                <span className={totalUnrealized >= 0 ? "text-emerald-400 font-extrabold" : "text-rose-400 font-extrabold"}>
+                  {totalUnrealized >= 0 ? '+' : ''}₹{totalUnrealized.toLocaleString('en-IN')}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span className="text-slate-300 font-bold">Positions ({trades.length})</span>
+                <span className={totalRealized >= 0 ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>
+                  {totalRealized >= 0 ? '+' : ''}₹{totalRealized.toLocaleString('en-IN')}
+                </span>
+              </>
+            )}
           </button>
         )}
 
