@@ -1137,9 +1137,16 @@ export const OptionSignalCard: React.FC<OptionSignalCardProps> = ({
                             Entry: <strong className="text-emerald-300">₹{pos.entry_price}</strong> • LTP: <strong className="text-cyan-300">₹{pos.current_ltp}</strong> • {pos.lots} Lot ({pos.quantity} Qty)
                           </div>
                           {(pos.entry_time || pos.created_at) && (
-                            <div className="text-[9px] text-sky-400 font-mono mt-1 flex items-center gap-1">
+                            <div className="text-[9px] text-sky-400 font-mono mt-1 flex items-center gap-1.5">
                               <Clock className="w-2.5 h-2.5 text-sky-400" />
                               <span>Added: <strong>{formatDateTime(pos.entry_time || pos.created_at)}</strong></span>
+                              <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold ${
+                                (pos.entry_time || pos.created_at)?.startsWith(new Date().toISOString().slice(0, 10))
+                                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-700'
+                                  : 'bg-slate-800 text-slate-300 border border-slate-700'
+                              }`}>
+                                {(pos.entry_time || pos.created_at)?.startsWith(new Date().toISOString().slice(0, 10)) ? '🟢 Today' : 'Earlier Date'}
+                              </span>
                             </div>
                           )}
                         </div>
