@@ -251,6 +251,22 @@ export const ActiveTradesManager: React.FC<ActiveTradesManagerProps> = ({
     }
   };
 
+  const [isClosingAll, setIsClosingAll] = useState(false);
+
+  const handleCloseAllActive = async () => {
+    if (!window.confirm(`Are you sure you want to exit and close all ${activeTrades.length} active positions at current market prices?`)) return;
+    setIsClosingAll(true);
+    try {
+      const res = await api.closeAllTrades();
+      showNotification('success', res.message || `Closed ${res.closed_count} positions`);
+      await fetchData();
+    } catch (err: any) {
+      showNotification('error', err.message || 'Failed to close all trades');
+    } finally {
+      setIsClosingAll(false);
+    }
+  };
+
   const handleClearAll = async () => {
     if (!window.confirm('Clear all trade positions and history?')) return;
     try {
@@ -640,15 +656,30 @@ export const ActiveTradesManager: React.FC<ActiveTradesManagerProps> = ({
               </button>
             </div>
 
-            {trades.length > 0 && (
-              <button
-                onClick={handleClearAll}
-                className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 hover:underline font-semibold ml-auto sm:ml-0"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Clear
-              </button>
-            )}
+            <div className="flex items-center gap-2 ml-auto sm:ml-0">
+              {activeTrades.length > 0 && (
+                <button
+                  onClick={handleCloseAllActive}
+                  disabled={isClosingAll}
+                  className="text-xs bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 px-2.5 py-1 rounded-lg flex items-center gap-1.5 font-semibold transition-all disabled:opacity-50"
+                  title="Square off / close all active positions now"
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                  {isClosingAll ? 'Closing...' : `Exit All Active (${activeTrades.length})`}
+                </button>
+              )}
+
+              {trades.length > 0 && (
+                <button
+                  onClick={handleClearAll}
+                  className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 hover:underline font-semibold"
+                  title="Clear all trade history"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

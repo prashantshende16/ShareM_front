@@ -367,6 +367,20 @@ export const api = {
     return res.json();
   },
 
+  async closeAllTrades(): Promise<{
+    status: string;
+    message: string;
+    closed_count: number;
+    total_realized_pnl: number;
+  }> {
+    const res = await fetch(`${API_BASE}/trades/close-all`, { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to close all trades');
+    }
+    return res.json();
+  },
+
   async closeTrade(tradeId: number): Promise<{
     status: string;
     message: string;
