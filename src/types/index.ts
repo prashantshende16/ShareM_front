@@ -72,6 +72,7 @@ export interface OptionStrikeItem {
   strike: number;
   label: string;
   tag: string;
+  delta?: number;
   is_atm: boolean;
   is_selected: boolean;
 }
@@ -103,6 +104,8 @@ export interface TradeExecution {
   day_close?: number;
   day_open?: number;
   tradingsymbol?: string;
+  symboltoken?: string;
+  delta?: number;
 }
 
 export interface IndicatorChecklistItem {

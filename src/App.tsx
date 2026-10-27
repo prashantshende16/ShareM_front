@@ -9,6 +9,7 @@ import { AnalysisHistory } from './pages/AnalysisHistory';
 import { CompareAnalysis } from './pages/CompareAnalysis';
 import { Watchlist } from './pages/Watchlist';
 import { Settings } from './pages/Settings';
+import { SurgeRadarPage } from './pages/SurgeRadarPage';
 
 export const App: React.FC = () => {
   return (
@@ -19,6 +20,7 @@ export const App: React.FC = () => {
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 w-full max-w-full">
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/surge-radar" element={<SurgeRadarPage />} />
             <Route path="/new" element={<NewAnalysis />} />
             <Route path="/analyses/:id" element={<AnalysisResult />} />
             <Route path="/history" element={<AnalysisHistory />} />

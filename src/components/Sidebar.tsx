@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
+  Zap,
   PlusCircle,
   History,
   GitCompare,
@@ -10,10 +11,21 @@ import {
   AlertTriangle,
   ExternalLink
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../services/api';
 
 export const Sidebar: React.FC = () => {
+  const { data: surgeData } = useQuery({
+    queryKey: ['surge-radar'],
+    queryFn: () => api.getSurgeRadar(),
+    refetchInterval: 6000,
+  });
+
+  const hotCount = surgeData?.suggestions?.filter((s: any) => s.is_hot || s.surge_pct >= 15)?.length || 0;
+
   const navItems = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/surge-radar', label: 'Surge Radar', icon: Zap, badge: hotCount > 0 ? `${hotCount} Hot` : undefined },
     { to: '/new', label: 'New Analysis', icon: PlusCircle },
     { to: '/history', label: 'Analysis History', icon: History },
     { to: '/compare', label: 'Compare Analyses', icon: GitCompare },
@@ -44,7 +56,14 @@ export const Sidebar: React.FC = () => {
                 }
               >
                 <Icon className="w-4 h-4 shrink-0" />
-                <span>{item.label}</span>
+                <div className="flex items-center justify-between flex-1">
+                  <span>{item.label}</span>
+                  {item.badge && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
               </NavLink>
             );
           })}

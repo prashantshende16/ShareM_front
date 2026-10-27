@@ -261,6 +261,70 @@ export const api = {
     return res.json();
   },
 
+  async getSurgeRadar(force = false): Promise<{
+    status: string;
+    macro_radar: {
+      dow_jones: { name: string; price: number; change: number; change_pct: number };
+      nasdaq: { name: string; price: number; change: number; change_pct: number };
+      india_vix: { name: string; price: number; change: number; change_pct: number; status: string; bias: string };
+      us_trend: string;
+      us_avg_change: number;
+      macro_verdict: string;
+      call_boost: number;
+      put_boost: number;
+    };
+    suggestions: Array<{
+      id: string;
+      symbol: string;
+      contract_name: string;
+      tradingsymbol?: string;
+      symboltoken?: string;
+      action: string;
+      option_type: 'CE' | 'PE';
+      strike_price: number;
+      expiry: string;
+      timeframe: string;
+      lots: number;
+      lot_size: number;
+      total_quantity: number;
+      surge_pct: number;
+      surge_badge: string;
+      surge_tier: string;
+      volume_ratio: number;
+      delta: number;
+      entry_price: number;
+      current_ltp: number;
+      stop_loss: number;
+      target_1: number;
+      target_2: number;
+      risk_reward: string;
+      confidence_score: number;
+      macro_confluence: string;
+      dow_change: number;
+      nasdaq_change: number;
+      india_vix: number;
+      detected_at: string;
+      detected_timestamp: number;
+      is_hot: boolean;
+      summary: string;
+    }>;
+    unread_alerts_count: number;
+    last_scanned_at: string;
+    total_suggestions: number;
+  }> {
+    const res = await fetch(`${API_BASE}/market/surge-radar?force=${force}`);
+    if (!res.ok) throw new Error('Failed to fetch surge radar');
+    return res.json();
+  },
+
+  async resetSurgeNotifications(): Promise<any> {
+    const res = await fetch(`${API_BASE}/market/surge-radar/reset-notifications`, {
+      method: 'POST',
+    });
+    if (!res.ok) throw new Error('Failed to reset surge notifications');
+    return res.json();
+  },
+
   async getAIMarketStrategy(
     symbol = 'NIFTY 50',
     timeframe = '5m',
