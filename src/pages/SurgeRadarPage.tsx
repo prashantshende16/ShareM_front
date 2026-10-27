@@ -14,19 +14,23 @@ import {
   AlertCircle,
   Flame,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Calendar,
+  Layers,
+  Filter
 } from 'lucide-react';
 import { api } from '../services/api';
 
 export const SurgeRadarPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const [selectedDate, setSelectedDate] = useState<string>('TODAY');
   const [filterType, setFilterType] = useState<'ALL' | 'CE' | 'PE' | 'HOT'>('ALL');
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ['surge-radar'],
-    queryFn: () => api.getSurgeRadar(),
+    queryKey: ['surge-radar', selectedDate],
+    queryFn: () => api.getSurgeRadar(selectedDate),
     refetchInterval: 5000, // Poll every 5s for rapid momentum tracking
   });
 
@@ -73,6 +77,8 @@ export const SurgeRadarPage: React.FC = () => {
 
   const macro = data?.macro_radar;
   const suggestions = data?.suggestions || [];
+  const availableDates = data?.available_dates || [];
+  const groupedByDate = data?.grouped_by_date || {};
 
   const filteredSuggestions = suggestions.filter((s) => {
     if (filterType === 'CE') return s.option_type === 'CE';
@@ -84,6 +90,124 @@ export const SurgeRadarPage: React.FC = () => {
   const hotCount = suggestions.filter((s) => s.is_hot || s.surge_pct >= 15).length;
   const ceCount = suggestions.filter((s) => s.option_type === 'CE').length;
   const peCount = suggestions.filter((s) => s.option_type === 'PE').length;
+
+  const renderCard = (sugg: any) => {
+    const isCall = sugg.option_type === 'CE';
+    const isExecuting = executingId === sugg.id;
+
+    return (
+      <div
+        key={sugg.id}
+        className={`p-5 rounded-2xl bg-slate-900/80 border transition-all hover:border-slate-600 flex flex-col justify-between ${
+          sugg.is_hot
+            ? 'border-amber-500/40 shadow-lg shadow-amber-500/5'
+            : 'border-slate-800'
+        }`}
+      >
+        <div>
+          {/* Top Bar: Symbol, Type, Surge Badge */}
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                <span className="font-extrabold text-white text-base tracking-tight">{sugg.symbol}</span>
+                <span
+                  className={`px-2 py-0.5 rounded text-[11px] font-black uppercase ${
+                    isCall
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                  }`}
+                >
+                  BUY {sugg.option_type}
+                </span>
+                <span className="text-xs font-mono text-slate-400">
+                  {sugg.lots} Lot ({sugg.total_quantity} Qty)
+                </span>
+                {sugg.detected_date_label && (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                    {sugg.detected_date_label}
+                  </span>
+                )}
+              </div>
+              <div className="text-xs font-bold text-slate-300 mt-1">
+                {sugg.contract_name}
+              </div>
+            </div>
+
+            <div className="flex flex-col items-end space-y-1 shrink-0">
+              <span className="px-2.5 py-1 rounded-lg text-xs font-black bg-gradient-to-r from-amber-500/20 to-rose-500/20 text-amber-300 border border-amber-500/40 shadow-sm animate-pulse">
+                {sugg.surge_badge}
+              </span>
+              <span className="text-[10px] font-mono text-slate-400 flex items-center space-x-1">
+                <Clock className="w-3 h-3 text-slate-500" />
+                <span>{sugg.detected_at}</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Greeks & Surge Metrics Row */}
+          <div className="grid grid-cols-3 gap-2 mt-4 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 text-xs font-mono">
+            <div>
+              <span className="text-[10px] text-slate-500 block uppercase">Option Delta</span>
+              <span className="font-extrabold text-sky-400">Δ {sugg.delta}</span>
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-500 block uppercase">Volume Ratio</span>
+              <span className="font-extrabold text-purple-400">{sugg.volume_ratio}x Spike</span>
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-500 block uppercase">Confidence</span>
+              <span className="font-extrabold text-emerald-400">{sugg.confidence_score}% Score</span>
+            </div>
+          </div>
+
+          {/* Levels Grid: Entry, SL, Targets */}
+          <div className="grid grid-cols-4 gap-2 mt-3 p-3 rounded-xl bg-slate-800/40 border border-slate-700/50 text-center">
+            <div>
+              <span className="text-[10px] text-slate-400 block font-mono">Trigger Entry</span>
+              <span className="text-xs font-bold text-white">₹{sugg.entry_price}</span>
+            </div>
+            <div>
+              <span className="text-[10px] text-rose-400 block font-mono">Stop Loss</span>
+              <span className="text-xs font-bold text-rose-300">₹{sugg.stop_loss}</span>
+            </div>
+            <div>
+              <span className="text-[10px] text-emerald-400 block font-mono">Target 1</span>
+              <span className="text-xs font-bold text-emerald-300">₹{sugg.target_1}</span>
+            </div>
+            <div>
+              <span className="text-[10px] text-indigo-400 block font-mono">Target 2</span>
+              <span className="text-xs font-bold text-indigo-300">₹{sugg.target_2}</span>
+            </div>
+          </div>
+
+          {/* Summary / Reasoning */}
+          <p className="text-xs text-slate-400 mt-3 leading-relaxed">
+            {sugg.summary}
+          </p>
+        </div>
+
+        {/* Bottom Actions */}
+        <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between">
+          <span className="text-[11px] font-mono text-slate-400">
+            R:R Ratio <strong className="text-white">{sugg.risk_reward}</strong>
+          </span>
+
+          <button
+            onClick={() => handleExecuteTrade(sugg)}
+            disabled={isExecuting}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-extrabold transition shadow-lg active:scale-95 ${
+              isCall
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-950/50'
+                : 'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white shadow-rose-950/50'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>{isExecuting ? 'Adding to Positions...' : '⚡ Add to Active Positions'}</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
@@ -202,7 +326,66 @@ export const SurgeRadarPage: React.FC = () => {
         </div>
       )}
 
-      {/* Filter Tabs */}
+      {/* Date-Wise Selector Bar */}
+      <div className="p-4 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2 text-xs font-bold text-slate-300">
+            <Calendar className="w-4 h-4 text-amber-400" />
+            <span>DATE-WISE SURGE SIGNALS</span>
+          </div>
+          <span className="text-[11px] font-mono text-slate-400">
+            Select a date to view current or historical surges
+          </span>
+        </div>
+
+        <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-thin">
+          <button
+            onClick={() => setSelectedDate('TODAY')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center space-x-1.5 ${
+              selectedDate === 'TODAY'
+                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30 border border-amber-400/50'
+                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 border border-slate-700'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5 text-amber-300" />
+            <span>Today's Surges</span>
+          </button>
+
+          {availableDates.map((d: any) => {
+            const isSelected = selectedDate === d.date;
+            return (
+              <button
+                key={d.date}
+                onClick={() => setSelectedDate(d.date)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center space-x-1.5 ${
+                  isSelected
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 border border-blue-400/50'
+                    : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 border border-slate-700'
+                }`}
+              >
+                <span>{d.label}</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-950/60 text-slate-300 font-mono">
+                  {d.count}
+                </span>
+              </button>
+            );
+          })}
+
+          <button
+            onClick={() => setSelectedDate('ALL')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center space-x-1.5 ${
+              selectedDate === 'ALL'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30 border border-purple-400/50'
+                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 border border-slate-700'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5 text-purple-300" />
+            <span>All Dates (History)</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Filter Tabs (CE, PE, HOT) */}
       <div className="flex items-center space-x-2 border-b border-slate-800 pb-3">
         <button
           onClick={() => setFilterType('ALL')}
@@ -256,127 +439,45 @@ export const SurgeRadarPage: React.FC = () => {
       ) : filteredSuggestions.length === 0 ? (
         <div className="p-12 text-center text-slate-500 bg-slate-900/40 rounded-2xl border border-slate-800 font-mono space-y-2">
           <AlertCircle className="w-8 h-8 text-slate-600 mx-auto" />
-          <p className="text-sm">No sudden momentum surges matching the current filter.</p>
-          <p className="text-xs text-slate-600">The radar continuously scans every 5 seconds for new 10% - 20%+ price expansions.</p>
+          <p className="text-sm">No sudden momentum surges found for selected date.</p>
+          <p className="text-xs text-slate-600">Try switching to another date or 'All Dates' to view historical surge records.</p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {filteredSuggestions.map((sugg) => {
-            const isCall = sugg.option_type === 'CE';
-            const isExecuting = executingId === sugg.id;
+      ) : selectedDate === 'ALL' ? (
+        /* Grouped by Date View */
+        <div className="space-y-8">
+          {Object.entries(groupedByDate).map(([dateKey, items]: [string, any]) => {
+            const dateFiltered = items.filter((s: any) => {
+              if (filterType === 'CE') return s.option_type === 'CE';
+              if (filterType === 'PE') return s.option_type === 'PE';
+              if (filterType === 'HOT') return s.is_hot || s.surge_pct >= 15;
+              return true;
+            });
+            if (dateFiltered.length === 0) return null;
 
             return (
-              <div
-                key={sugg.id}
-                className={`p-5 rounded-2xl bg-slate-900/80 border transition-all hover:border-slate-600 flex flex-col justify-between ${
-                  sugg.is_hot
-                    ? 'border-amber-500/40 shadow-lg shadow-amber-500/5'
-                    : 'border-slate-800'
-                }`}
-              >
-                <div>
-                  {/* Top Bar: Symbol, Type, Surge Badge */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-extrabold text-white text-base tracking-tight">{sugg.symbol}</span>
-                        <span
-                          className={`px-2 py-0.5 rounded text-[11px] font-black uppercase ${
-                            isCall
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                              : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                          }`}
-                        >
-                          BUY {sugg.option_type}
-                        </span>
-                        <span className="text-xs font-mono text-slate-400">
-                          {sugg.lots} Lot ({sugg.total_quantity} Qty)
-                        </span>
-                      </div>
-                      <div className="text-xs font-bold text-slate-300 mt-1">
-                        {sugg.contract_name}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col items-end space-y-1">
-                      <span className="px-2.5 py-1 rounded-lg text-xs font-black bg-gradient-to-r from-amber-500/20 to-rose-500/20 text-amber-300 border border-amber-500/40 shadow-sm animate-pulse">
-                        {sugg.surge_badge}
-                      </span>
-                      <span className="text-[10px] font-mono text-slate-400 flex items-center space-x-1">
-                        <Clock className="w-3 h-3 text-slate-500" />
-                        <span>{sugg.detected_at}</span>
-                      </span>
-                    </div>
+              <div key={dateKey} className="space-y-4">
+                <div className="flex items-center space-x-3 pb-2 border-b border-slate-800">
+                  <div className="px-3 py-1 rounded-lg bg-slate-800 text-amber-300 font-mono text-xs font-extrabold flex items-center space-x-1.5">
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>📅 {dateFiltered[0]?.detected_date_label || dateKey}</span>
                   </div>
-
-                  {/* Greeks & Surge Metrics Row */}
-                  <div className="grid grid-cols-3 gap-2 mt-4 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 text-xs font-mono">
-                    <div>
-                      <span className="text-[10px] text-slate-500 block uppercase">Option Delta</span>
-                      <span className="font-extrabold text-sky-400">Δ {sugg.delta}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-500 block uppercase">Volume Ratio</span>
-                      <span className="font-extrabold text-purple-400">{sugg.volume_ratio}x Spike</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-500 block uppercase">Confidence</span>
-                      <span className="font-extrabold text-emerald-400">{sugg.confidence_score}% Score</span>
-                    </div>
-                  </div>
-
-                  {/* Levels Grid: Entry, SL, Targets */}
-                  <div className="grid grid-cols-4 gap-2 mt-3 p-3 rounded-xl bg-slate-800/40 border border-slate-700/50 text-center">
-                    <div>
-                      <span className="text-[10px] text-slate-400 block font-mono">Trigger Entry</span>
-                      <span className="text-xs font-bold text-white">₹{sugg.entry_price}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-rose-400 block font-mono">Stop Loss</span>
-                      <span className="text-xs font-bold text-rose-300">₹{sugg.stop_loss}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-emerald-400 block font-mono">Target 1</span>
-                      <span className="text-xs font-bold text-emerald-300">₹{sugg.target_1}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-indigo-400 block font-mono">Target 2</span>
-                      <span className="text-xs font-bold text-indigo-300">₹{sugg.target_2}</span>
-                    </div>
-                  </div>
-
-                  {/* Summary / Reasoning */}
-                  <p className="text-xs text-slate-400 mt-3 leading-relaxed">
-                    {sugg.summary}
-                  </p>
-                </div>
-
-                {/* Bottom Actions */}
-                <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between">
-                  <span className="text-[11px] font-mono text-slate-400">
-                    R:R Ratio <strong className="text-white">{sugg.risk_reward}</strong>
+                  <span className="text-xs text-slate-400 font-mono">
+                    {dateFiltered.length} Surge Signals
                   </span>
-
-                  <button
-                    onClick={() => handleExecuteTrade(sugg)}
-                    disabled={isExecuting}
-                    className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-extrabold transition shadow-lg active:scale-95 ${
-                      isCall
-                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-950/50'
-                        : 'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white shadow-rose-950/50'
-                    }`}
-                  >
-                    <Zap className="w-3.5 h-3.5" />
-                    <span>{isExecuting ? 'Adding to Positions...' : '⚡ Add to Active Positions'}</span>
-                  </button>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  {dateFiltered.map(renderCard)}
                 </div>
               </div>
             );
           })}
         </div>
+      ) : (
+        /* Standard Single Date Grid */
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {filteredSuggestions.map(renderCard)}
+        </div>
       )}
     </div>
   );
 };
-
-export default SurgeRadarPage;

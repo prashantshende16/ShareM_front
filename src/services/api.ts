@@ -261,7 +261,7 @@ export const api = {
     return res.json();
   },
 
-  async getSurgeRadar(force = false): Promise<{
+  async getSurgeRadar(date?: string, force = false): Promise<{
     status: string;
     macro_radar: {
       dow_jones: { name: string; price: number; change: number; change_pct: number };
@@ -273,6 +273,10 @@ export const api = {
       call_boost: number;
       put_boost: number;
     };
+    selected_date?: string;
+    today_date?: string;
+    available_dates?: Array<{ date: string; label: string; count: number; is_today?: boolean }>;
+    grouped_by_date?: Record<string, any[]>;
     suggestions: Array<{
       id: string;
       symbol: string;
@@ -303,6 +307,9 @@ export const api = {
       dow_change: number;
       nasdaq_change: number;
       india_vix: number;
+      detected_date?: string;
+      detected_date_label?: string;
+      detected_time?: string;
       detected_at: string;
       detected_timestamp: number;
       is_hot: boolean;
@@ -312,7 +319,9 @@ export const api = {
     last_scanned_at: string;
     total_suggestions: number;
   }> {
-    const res = await fetch(`${API_BASE}/market/surge-radar?force=${force}`);
+    let url = `${API_BASE}/market/surge-radar?force=${force}`;
+    if (date) url += `&date=${encodeURIComponent(date)}`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error('Failed to fetch surge radar');
     return res.json();
   },
