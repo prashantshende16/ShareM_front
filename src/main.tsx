@@ -11,7 +11,7 @@ window.addEventListener("error", (event) => {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-ErrorWatch-Key": "ew_client_ICmazkjWkyJdmvCMjdC9NcmmHGDqu7ab"
+      "X-ErrorWatch-Key": "ew_client_4JZ0mGc1UB1Py26ZVxQRIGtPDKPQXTP"
     },
     body: JSON.stringify({
       exception: {
@@ -21,7 +21,7 @@ window.addEventListener("error", (event) => {
           { filename: event.filename, lineno: event.lineno, colno: event.colno, function: "window.onerror", in_app: true }
         ]
       },
-      environment: "development",
+      environment: "staging",
       release: "1.0.0"
     })
   }).catch(() => {
