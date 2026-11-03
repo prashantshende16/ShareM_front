@@ -40,7 +40,10 @@ export const Navbar: React.FC = () => {
 
   const isConnected = settings?.market_data_connected ?? true;
   const unreadAlerts = surgeData?.unread_alerts_count || 0;
-  const topSurges = surgeData?.suggestions?.slice(0, 4) || [];
+  // Only high-conviction setups (profit chance >= 80%) appear in notifications
+  const topSurges = (surgeData?.suggestions || [])
+    .filter((s: any) => (Number(s?.confidence_score) || 0) >= 80)
+    .slice(0, 4);
 
   return (
     <header className="h-16 bg-[#0f172a] border-b border-gray-800 px-6 flex items-center justify-between sticky top-0 z-40">

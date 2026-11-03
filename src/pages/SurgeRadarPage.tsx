@@ -76,9 +76,16 @@ export const SurgeRadarPage: React.FC = () => {
   };
 
   const macro = data?.macro_radar;
-  const suggestions = data?.suggestions || [];
+  // Strict: only show setups with profit chance / confidence >= 80%
+  const MIN_CONFIDENCE = 80;
+  const isHighConviction = (s: any) => (Number(s?.confidence_score) || 0) >= MIN_CONFIDENCE;
+  const suggestions = (data?.suggestions || []).filter(isHighConviction);
   const availableDates = data?.available_dates || [];
-  const groupedByDate = data?.grouped_by_date || {};
+  const groupedByDate: Record<string, any[]> = Object.fromEntries(
+    Object.entries(data?.grouped_by_date || {})
+      .map(([k, items]: [string, any]) => [k, (items || []).filter(isHighConviction)])
+      .filter(([, items]) => (items as any[]).length > 0)
+  );
 
   const filteredSuggestions = suggestions.filter((s) => {
     if (filterType === 'CE') return s.option_type === 'CE';
@@ -236,6 +243,9 @@ export const SurgeRadarPage: React.FC = () => {
                 <h1 className="text-xl font-bold text-white tracking-tight">RAPID SURGE TRADE RADAR</h1>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
                   10% - 20%+ Sudden High Move
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                  ≥ 80% Profit Chance Only
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
