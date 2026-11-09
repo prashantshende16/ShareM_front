@@ -21,7 +21,7 @@ export const Sidebar: React.FC = () => {
     refetchInterval: 6000,
   });
 
-  const hotCount = surgeData?.suggestions?.filter((s: any) => (Number(s?.confidence_score) || 0) >= 80 && (s.is_hot || s.surge_pct >= 15))?.length || 0;
+  const hotCount = surgeData?.suggestions?.filter((s: any) => (Number(s?.confidence_score) || 0) >= Number(surgeData?.min_confidence ?? 80) && (Number(s?.surge_pct) || 0) >= Number(surgeData?.min_surge_pct ?? 10))?.length || 0;
 
   const navItems = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },

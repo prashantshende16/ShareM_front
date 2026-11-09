@@ -42,7 +42,7 @@ export const Navbar: React.FC = () => {
   const unreadAlerts = surgeData?.unread_alerts_count || 0;
   // Only high-conviction setups (profit chance >= 80%) appear in notifications
   const topSurges = (surgeData?.suggestions || [])
-    .filter((s: any) => (Number(s?.confidence_score) || 0) >= 80)
+    .filter((s: any) => (Number(s?.confidence_score) || 0) >= Number(surgeData?.min_confidence ?? 80) && (Number(s?.surge_pct) || 0) >= Number(surgeData?.min_surge_pct ?? 10))
     .slice(0, 4);
 
   return (
@@ -153,7 +153,14 @@ export const Navbar: React.FC = () => {
               <div className="py-2 space-y-2.5 max-h-72 overflow-y-auto">
                 {topSurges.length === 0 ? (
                   <div className="py-6 text-center text-xs text-slate-500 font-mono">
-                    No sudden surges detected right now. Scanning every 5s...
+                    No setups pass the filters right now. Scanning every 5s...
+                    <div className="mt-2 space-y-1 text-left text-[10px] text-slate-400">
+                      {(surgeData?.scan_diagnostics || []).map((d) => (
+                        <div key={d.symbol}>
+                          <span className="text-slate-300 font-bold">{d.symbol}:</span> {d.reason}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : (
                   topSurges.map((sugg) => (
@@ -174,7 +181,9 @@ export const Navbar: React.FC = () => {
                       </div>
                       <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mt-1.5">
                         <span>LTP: ₹{sugg.current_ltp} • Entry: ₹{sugg.entry_price}</span>
-                        <span className="text-sky-400 font-bold">Δ {sugg.delta}</span>
+                        <span className="text-amber-300 font-bold">
+                          1 Lot: ₹{Math.round(Number(sugg.capital_required) || (Number(sugg.entry_price) * (Number(sugg.total_quantity) || Number(sugg.lot_size) || 1))).toLocaleString('en-IN')}
+                        </span>
                       </div>
                     </Link>
                   ))

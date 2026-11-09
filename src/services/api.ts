@@ -298,6 +298,11 @@ export const api = {
       delta: number;
       entry_price: number;
       current_ltp: number;
+      signal_ltp?: number;
+      capital_required?: number;
+      max_risk_amount?: number;
+      target_1_profit?: number;
+      target_2_profit?: number;
       stop_loss: number;
       target_1: number;
       target_2: number;
@@ -318,11 +323,35 @@ export const api = {
     unread_alerts_count: number;
     last_scanned_at: string;
     total_suggestions: number;
+    min_confidence?: number;
+    min_surge_pct?: number;
+    scan_diagnostics?: { symbol: string; result: string; reason: string }[];
   }> {
     let url = `${API_BASE}/market/surge-radar?force=${force}`;
     if (date) url += `&date=${encodeURIComponent(date)}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('Failed to fetch surge radar');
+    return res.json();
+  },
+
+  async setSurgeSettings(minSurgePct: number, minConfidence?: number): Promise<{
+    status: string;
+    min_surge_pct: number;
+    min_confidence: number;
+    updated_at: string | null;
+  }> {
+    const res = await fetch(`${API_BASE}/market/surge-radar/settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        min_surge_pct: minSurgePct,
+        ...(minConfidence !== undefined ? { min_confidence: minConfidence } : {}),
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to save surge settings');
+    }
     return res.json();
   },
 

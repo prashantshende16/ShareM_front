@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Zap,
@@ -33,6 +33,32 @@ export const SurgeRadarPage: React.FC = () => {
     queryFn: () => api.getSurgeRadar(selectedDate),
     refetchInterval: 5000, // Poll every 5s for rapid momentum tracking
   });
+
+  const [minSurgeInput, setMinSurgeInput] = useState<string>('');
+  const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (data?.min_surge_pct !== undefined) setMinSurgeInput(String(data.min_surge_pct));
+  }, [data?.min_surge_pct]);
+
+  const saveSettingsMutation = useMutation({
+    mutationFn: (v: number) => api.setSurgeSettings(v),
+    onSuccess: (res) => {
+      setSettingsMsg(`✅ Showing only +${res.min_surge_pct}% momentum and above (from ${res.updated_at}).`);
+      queryClient.invalidateQueries({ queryKey: ['surge-radar'] });
+      setTimeout(() => setSettingsMsg(null), 6000);
+    },
+    onError: (e: any) => setSettingsMsg(`⚠️ ${e.message}`),
+  });
+
+  const applyMinSurge = (raw: string) => {
+    const v = Number(raw);
+    if (!Number.isFinite(v) || v < 0) {
+      setSettingsMsg('⚠️ Enter a valid number (0 or more).');
+      return;
+    }
+    saveSettingsMutation.mutate(v);
+  };
 
   const createTradeMutation = useMutation({
     mutationFn: (tradePayload: any) => api.createTrade(tradePayload),
@@ -77,8 +103,10 @@ export const SurgeRadarPage: React.FC = () => {
 
   const macro = data?.macro_radar;
   // Strict: only show setups with profit chance / confidence >= 80%
-  const MIN_CONFIDENCE = 80;
-  const isHighConviction = (s: any) => (Number(s?.confidence_score) || 0) >= MIN_CONFIDENCE;
+  const MIN_CONFIDENCE = Number(data?.min_confidence ?? 80);
+  const MIN_SURGE_PCT = Number(data?.min_surge_pct ?? 10); // follows backend setting
+  const isHighConviction = (s: any) =>
+    (Number(s?.confidence_score) || 0) >= MIN_CONFIDENCE && (Number(s?.surge_pct) || 0) >= MIN_SURGE_PCT;
   const suggestions = (data?.suggestions || []).filter(isHighConviction);
   const availableDates = data?.available_dates || [];
   const groupedByDate: Record<string, any[]> = Object.fromEntries(
@@ -128,6 +156,9 @@ export const SurgeRadarPage: React.FC = () => {
                 </span>
                 <span className="text-xs font-mono text-slate-400">
                   {sugg.lots} Lot ({sugg.total_quantity} Qty)
+                </span>
+                <span className="px-2 py-0.5 rounded text-[11px] font-black font-mono bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  💰 1 Lot: ₹{Math.round(Number(sugg.capital_required) || (Number(sugg.entry_price) * (Number(sugg.total_quantity) || Number(sugg.lot_size) || 1))).toLocaleString('en-IN')}
                 </span>
                 {sugg.detected_date_label && (
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
@@ -187,6 +218,52 @@ export const SurgeRadarPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Price & 1-Lot Cost: what you pay if you buy at the entry price */}
+          {(() => {
+            const qty = Number(sugg.total_quantity) || Number(sugg.lot_size) || 1;
+            const entry = Number(sugg.entry_price) || 0;
+            const money = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+            const capital = Number(sugg.capital_required) || entry * qty;
+            const maxRisk = Number(sugg.max_risk_amount) || Math.max(0, entry - Number(sugg.stop_loss)) * qty;
+            const t1Profit = Number(sugg.target_1_profit) || (Number(sugg.target_1) - entry) * qty;
+            const t2Profit = Number(sugg.target_2_profit) || (Number(sugg.target_2) - entry) * qty;
+            return (
+              <div className="mt-2 p-3 rounded-xl bg-slate-950/60 border border-slate-700/50 space-y-2">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-mono">Price at Signal</span>
+                    <span className="text-xs font-bold text-slate-200">₹{sugg.signal_ltp ?? sugg.current_ltp}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-mono">Live LTP</span>
+                    <span className="text-xs font-bold text-sky-300">₹{sugg.current_ltp}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-mono">Buy At (Entry)</span>
+                    <span className="text-xs font-bold text-white">₹{sugg.entry_price}</span>
+                  </div>
+                </div>
+                <div className="text-[11px] font-mono text-slate-300 text-center">
+                  1 Lot = ₹{sugg.entry_price} × {qty} Qty = <strong className="text-amber-300">{money(capital)}</strong>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <span className="text-[10px] text-rose-400 block font-mono">Max Risk (SL)</span>
+                    <span className="text-xs font-bold text-rose-300">-{money(maxRisk)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-emerald-400 block font-mono">T1 Profit</span>
+                    <span className="text-xs font-bold text-emerald-300">+{money(t1Profit)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-indigo-400 block font-mono">T2 Profit</span>
+                    <span className="text-xs font-bold text-indigo-300">+{money(t2Profit)}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Summary / Reasoning */}
           <p className="text-xs text-slate-400 mt-3 leading-relaxed">
             {sugg.summary}
@@ -209,7 +286,11 @@ export const SurgeRadarPage: React.FC = () => {
             }`}
           >
             <Zap className="w-3.5 h-3.5" />
-            <span>{isExecuting ? 'Adding to Positions...' : '⚡ Add to Active Positions'}</span>
+            <span>
+              {isExecuting
+                ? 'Adding to Positions...'
+                : `⚡ Add 1 Lot (₹${Math.round(Number(sugg.capital_required) || (Number(sugg.entry_price) * (Number(sugg.total_quantity) || Number(sugg.lot_size) || 1))).toLocaleString('en-IN')})`}
+            </span>
           </button>
         </div>
       </div>
@@ -245,7 +326,7 @@ export const SurgeRadarPage: React.FC = () => {
                   10% - 20%+ Sudden High Move
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                  ≥ 80% Profit Chance Only
+                  ≥ {MIN_CONFIDENCE}% Profit Chance • ≥ +{MIN_SURGE_PCT}% Surge Only
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
@@ -268,6 +349,52 @@ export const SurgeRadarPage: React.FC = () => {
             Last scan: <span className="text-slate-200 font-bold">{data?.last_scanned_at || '--:--'}</span>
           </div>
         </div>
+      </div>
+
+      {/* Minimum Momentum Range Setting (user adjustable, saved on server) */}
+      <div className="p-4 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center space-x-2 text-xs font-bold text-slate-300">
+            <Filter className="w-4 h-4 text-amber-400" />
+            <span>MINIMUM MOMENTUM % (show only above this)</span>
+          </div>
+          <span className="text-[11px] font-mono text-slate-400">
+            Active: <span className="text-amber-300 font-bold">+{data?.min_surge_pct ?? '--'}%</span>
+            {' • '}applies to new signals from the moment you save
+          </span>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {[10, 50, 250, 500, 800].map((v) => (
+            <button
+              key={v}
+              onClick={() => { setMinSurgeInput(String(v)); applyMinSurge(String(v)); }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                Number(data?.min_surge_pct) === v
+                  ? 'bg-amber-600 text-white border-amber-400/50'
+                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 border-slate-700'
+              }`}
+            >
+              {v}%+
+            </button>
+          ))}
+          <input
+            type="number"
+            min={0}
+            value={minSurgeInput}
+            onChange={(e) => setMinSurgeInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') applyMinSurge(minSurgeInput); }}
+            placeholder="Custom %"
+            className="w-28 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white font-mono focus:outline-none focus:border-amber-500"
+          />
+          <button
+            onClick={() => applyMinSurge(minSurgeInput)}
+            disabled={saveSettingsMutation.isPending}
+            className="px-4 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-60"
+          >
+            {saveSettingsMutation.isPending ? 'Saving...' : 'Apply'}
+          </button>
+        </div>
+        {settingsMsg && <p className="text-[11px] font-mono text-slate-300">{settingsMsg}</p>}
       </div>
 
       {/* Global Macro Observation Bar (Dow Jones, Nasdaq 100, India VIX) */}
@@ -451,6 +578,13 @@ export const SurgeRadarPage: React.FC = () => {
           <AlertCircle className="w-8 h-8 text-slate-600 mx-auto" />
           <p className="text-sm">No sudden momentum surges found for selected date.</p>
           <p className="text-xs text-slate-600">Try switching to another date or 'All Dates' to view historical surge records.</p>
+          <div className="pt-2 text-left inline-block text-[11px] text-slate-400 space-y-1">
+            {(data?.scan_diagnostics || []).map((d) => (
+              <div key={d.symbol}>
+                <span className="text-slate-300 font-bold">{d.symbol}:</span> {d.reason}
+              </div>
+            ))}
+          </div>
         </div>
       ) : selectedDate === 'ALL' ? (
         /* Grouped by Date View */
