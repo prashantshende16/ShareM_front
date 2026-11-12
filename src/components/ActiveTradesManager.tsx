@@ -16,7 +16,9 @@ import {
   Lock,
   Clock,
   Calendar,
-  Filter
+  Filter,
+  X,
+  Info
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { TradePosition, ProfileMarginData } from '../types';
@@ -138,6 +140,7 @@ export const ActiveTradesManager: React.FC<ActiveTradesManagerProps> = ({
   const [batchTimeframe, setBatchTimeframe] = useState<string>(selectedTimeframe);
   const [lastTickTime, setLastTickTime] = useState<string>('Just now');
   const [selectedDate, setSelectedDate] = useState<string>('TODAY');
+  const [selectedClosedTrade, setSelectedClosedTrade] = useState<TradePosition | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -982,79 +985,348 @@ export const ActiveTradesManager: React.FC<ActiveTradesManagerProps> = ({
                 </button>
               </div>
             ) : (
-              filteredPastTrades.map((t) => (
-                <div
-                  key={t.id}
-                  className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/60 hover:border-slate-600 transition flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-white text-sm">{t.contract_name}</span>
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          t.status === 'TARGET_2_BOOKED'
-                            ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
-                            : t.realized_pnl >= 0
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                            : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                        }`}
-                      >
-                        {t.status.replace(/_/g, ' ')}
-                      </span>
-                      <span className="text-[11px] font-mono text-slate-400">
-                        {t.lots} Lot ({t.quantity} Qty)
-                      </span>
-                    </div>
+              filteredPastTrades.map((t) => {
+                const qty = t.quantity || 1;
+                const entryVal = t.entry_price || 0;
+                const exitVal = t.current_ltp || 0;
+                const purchaseAmt = entryVal * qty;
+                const closingAmt = exitVal * qty;
+                const pointDiff = exitVal - entryVal;
 
-                    {/* Added Date & Time and Exited Date & Time */}
-                    <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] font-mono">
-                      <div className="flex items-center gap-1.5 text-slate-300 bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800">
-                        <Clock className="w-3 h-3 text-emerald-400" />
-                        <span className="text-slate-400">Added:</span>
-                        <strong className="text-emerald-300">{formatDateTime(t.entry_time || t.created_at)}</strong>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 text-slate-300 bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800">
-                        <XCircle className="w-3 h-3 text-rose-400" />
-                        <span className="text-slate-400">Exited:</span>
-                        <strong className="text-rose-300">{formatDateTime(t.exit_time || t.created_at)}</strong>
-                      </div>
-
-                      {(t.entry_time || t.created_at) && (t.exit_time || t.created_at) && (
-                        <span className="text-[10px] text-slate-400 font-sans">
-                          (Held: <strong className="text-slate-300">{formatDuration(t.entry_time || t.created_at, t.exit_time || t.created_at)}</strong>)
+                return (
+                  <div
+                    key={t.id}
+                    onClick={() => setSelectedClosedTrade(t)}
+                    className="p-3.5 rounded-xl bg-slate-800/40 border border-slate-700/60 hover:border-sky-500/60 hover:bg-slate-800/80 transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs cursor-pointer group shadow-sm"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-extrabold text-white text-sm group-hover:text-sky-300 transition-colors">
+                          {t.contract_name}
                         </span>
-                      )}
-                    </div>
-                  </div>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            t.status === 'TARGET_2_BOOKED'
+                              ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                              : t.realized_pnl >= 0
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                              : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                          }`}
+                        >
+                          {t.status.replace(/_/g, ' ')}
+                        </span>
+                        <span className="text-[11px] font-mono text-slate-400">
+                          {t.lots} Lot ({t.quantity} Qty)
+                        </span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                          1 Lot: ₹{Math.round(purchaseAmt).toLocaleString('en-IN')}
+                        </span>
+                      </div>
 
-                  <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-700/50">
-                    <div className="text-left md:text-right">
-                      <div
-                        className={`font-mono font-black text-sm ${
-                          t.realized_pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                        }`}
+                      {/* Added Date & Time and Exited Date & Time */}
+                      <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] font-mono">
+                        <div className="flex items-center gap-1.5 text-slate-300 bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800">
+                          <Clock className="w-3 h-3 text-emerald-400" />
+                          <span className="text-slate-400">Added:</span>
+                          <strong className="text-emerald-300">{formatDateTime(t.entry_time || t.created_at)}</strong>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-slate-300 bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800">
+                          <XCircle className="w-3 h-3 text-rose-400" />
+                          <span className="text-slate-400">Exited:</span>
+                          <strong className="text-rose-300">{formatDateTime(t.exit_time || t.created_at)}</strong>
+                        </div>
+
+                        {(t.entry_time || t.created_at) && (t.exit_time || t.created_at) && (
+                          <span className="text-[10px] text-slate-400 font-sans">
+                            (Held: <strong className="text-slate-300">{formatDuration(t.entry_time || t.created_at, t.exit_time || t.created_at)}</strong>)
+                          </span>
+                        )}
+
+                        <div className="flex items-center gap-1 text-[10px] text-sky-400/90 group-hover:text-sky-300 font-sans font-medium">
+                          <Info className="w-3 h-3" />
+                          <span>Tap for full statement</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-700/50">
+                      <div className="text-left md:text-right">
+                        <div
+                          className={`font-mono font-black text-sm ${
+                            t.realized_pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                          }`}
+                        >
+                          {t.realized_pnl >= 0 ? '+' : ''}₹{t.realized_pnl.toLocaleString('en-IN')}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          Entry: ₹{t.entry_price} → Exit: ₹{t.current_ltp} ({pointDiff >= 0 ? '+' : ''}{pointDiff.toFixed(1)} pts)
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-mono">
+                          Close Value: ₹{Math.round(closingAmt).toLocaleString('en-IN')}
+                        </div>
+                      </div>
+
+                      {/* Delete icon right side */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Delete closed trade record for ${t.contract_name}?`)) {
+                            handleDeleteTrade(t.id);
+                          }
+                        }}
+                        className="p-2 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition shrink-0"
+                        title="Delete closed trade record"
                       >
-                        {t.realized_pnl >= 0 ? '+' : ''}₹{t.realized_pnl.toLocaleString('en-IN')}
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-mono">
-                        Entry: ₹{t.entry_price} → Exit: ₹{t.current_ltp}
-                      </div>
+                        <Trash2 className="w-4 h-4 text-rose-400/80 hover:text-rose-400" />
+                      </button>
                     </div>
-
-                    <button
-                      onClick={() => handleDeleteTrade(t.id)}
-                      className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-700/60 transition"
-                      title="Delete trade record"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </details>
+      )}
+
+      {/* Comprehensive Closed Trade Details Popup Modal */}
+      {selectedClosedTrade && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+          onClick={() => setSelectedClosedTrade(null)}
+        >
+          <div
+            className="bg-[#0f172a] border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto shadow-2xl p-6 space-y-5 text-gray-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-800">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-extrabold text-white text-base tracking-tight">
+                    {selectedClosedTrade.contract_name}
+                  </span>
+                  <span
+                    className={`px-2.5 py-0.5 rounded text-xs font-bold uppercase ${
+                      selectedClosedTrade.status === 'TARGET_2_BOOKED'
+                        ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                        : selectedClosedTrade.realized_pnl >= 0
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                    }`}
+                  >
+                    {selectedClosedTrade.status.replace(/_/g, ' ')}
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                    {selectedClosedTrade.trade_mode}
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                      selectedClosedTrade.option_type === 'CE'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                    }`}
+                  >
+                    {selectedClosedTrade.action} {selectedClosedTrade.option_type}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-400 font-mono">
+                  Exchange: <strong className="text-slate-300">{selectedClosedTrade.exchange || 'NFO'}</strong> • Strike: <strong className="text-slate-300">₹{selectedClosedTrade.strike_price || '--'}</strong> • Timeframe: <strong className="text-slate-300">{selectedClosedTrade.timeframe || '5m'}</strong>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedClosedTrade(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Realized P&L Hero Card */}
+            {(() => {
+              const qty = selectedClosedTrade.quantity || 1;
+              const entryPrice = selectedClosedTrade.entry_price || 0;
+              const exitPrice = selectedClosedTrade.current_ltp || 0;
+              const purchaseAmount = entryPrice * qty;
+              const exitAmount = exitPrice * qty;
+              const pnl = selectedClosedTrade.realized_pnl ?? (exitAmount - purchaseAmount);
+              const pointDiff = exitPrice - entryPrice;
+              const pctReturn = entryPrice > 0 ? (pointDiff / entryPrice) * 100 : 0;
+              const isProfit = pnl >= 0;
+
+              return (
+                <>
+                  <div
+                    className={`p-4 rounded-xl border flex items-center justify-between ${
+                      isProfit
+                        ? 'bg-emerald-950/30 border-emerald-500/40 shadow-lg shadow-emerald-950/20'
+                        : 'bg-rose-950/30 border-rose-500/40 shadow-lg shadow-rose-950/20'
+                    }`}
+                  >
+                    <div>
+                      <span className="text-[11px] font-mono uppercase text-slate-400">Total Realized P&L</span>
+                      <div className={`text-3xl font-black font-mono mt-0.5 ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {isProfit ? '+' : ''}₹{pnl.toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}
+                      </div>
+                      <div className="text-xs font-mono text-slate-300 mt-1">
+                        Point Movement: <strong className={pointDiff >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{pointDiff >= 0 ? '+' : ''}{pointDiff.toFixed(2)} pts</strong> ({pctReturn >= 0 ? '+' : ''}{pctReturn.toFixed(2)}%)
+                      </div>
+                    </div>
+
+                    <div className="text-right font-mono text-xs space-y-1">
+                      <div>
+                        <span className="text-slate-400">Position Size: </span>
+                        <strong className="text-white">{selectedClosedTrade.lots} Lot ({qty} Qty)</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Holding Duration: </span>
+                        <strong className="text-sky-300">
+                          {formatDuration(selectedClosedTrade.entry_time || selectedClosedTrade.created_at, selectedClosedTrade.exit_time || selectedClosedTrade.created_at)}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Financial Amounts Matrix */}
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono mb-2">
+                      💰 Capital & Amount Breakdown
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                        <span className="text-[11px] text-slate-400 font-mono block">Purchase Lot Amount (Invested)</span>
+                        <div className="text-lg font-black text-amber-300 font-mono mt-1">
+                          ₹{purchaseAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                        <span className="text-[10px] text-slate-500 font-mono block mt-0.5">
+                          Entry: ₹{entryPrice.toFixed(2)} × {qty} Qty
+                        </span>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                        <span className="text-[11px] text-slate-400 font-mono block">Closing / Exit Amount</span>
+                        <div className="text-lg font-black text-sky-300 font-mono mt-1">
+                          ₹{exitAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                        <span className="text-[10px] text-slate-500 font-mono block mt-0.5">
+                          Exit: ₹{exitPrice.toFixed(2)} × {qty} Qty
+                        </span>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                        <span className="text-[11px] text-slate-400 font-mono block">Net P&L Result</span>
+                        <div className={`text-lg font-black font-mono mt-1 ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {isProfit ? '+' : ''}₹{pnl.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                        <span className={`text-[10px] font-mono block mt-0.5 ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {isProfit ? 'Profit Booked' : 'Loss Mitigated'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Price Points & Levels Matrix */}
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono mb-2">
+                      🎯 Price Points & Levels
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
+                        <span className="text-[10px] text-slate-400 font-mono block">Point Purchase (Entry)</span>
+                        <span className="text-sm font-bold text-white font-mono mt-0.5 block">₹{entryPrice.toFixed(2)}</span>
+                      </div>
+                      <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
+                        <span className="text-[10px] text-slate-400 font-mono block">Point Closing (Exit)</span>
+                        <span className={`text-sm font-bold font-mono mt-0.5 block ${isProfit ? 'text-emerald-300' : 'text-rose-300'}`}>
+                          ₹{exitPrice.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
+                        <span className="text-[10px] text-rose-400 font-mono block">Stop Loss Level</span>
+                        <span className="text-sm font-bold text-rose-300 font-mono mt-0.5 block">₹{selectedClosedTrade.stop_loss}</span>
+                      </div>
+                      <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
+                        <span className="text-[10px] text-emerald-400 font-mono block">Target 1 Level</span>
+                        <span className="text-sm font-bold text-emerald-300 font-mono mt-0.5 block">₹{selectedClosedTrade.target_1}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Timing Details */}
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono mb-2">
+                      🕒 Timestamps & Trade Statement
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Point Purchase Time:</span>
+                          <strong className="text-emerald-300">{formatDateTime(selectedClosedTrade.entry_time || selectedClosedTrade.created_at)}</strong>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Point Closing Time:</span>
+                          <strong className="text-rose-300">{formatDateTime(selectedClosedTrade.exit_time || selectedClosedTrade.created_at)}</strong>
+                        </div>
+                        <div className="flex justify-between items-center pt-1 border-t border-slate-800">
+                          <span className="text-slate-400">Total Holding Duration:</span>
+                          <strong className="text-white">
+                            {formatDuration(selectedClosedTrade.entry_time || selectedClosedTrade.created_at, selectedClosedTrade.exit_time || selectedClosedTrade.created_at)}
+                          </strong>
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Trading Symbol:</span>
+                          <strong className="text-slate-200">{selectedClosedTrade.tradingsymbol || selectedClosedTrade.symbol}</strong>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Symbol Token:</span>
+                          <strong className="text-slate-200">{selectedClosedTrade.symboltoken || '--'}</strong>
+                        </div>
+                        <div className="flex justify-between items-center pt-1 border-t border-slate-800">
+                          <span className="text-slate-400">Order ID:</span>
+                          <strong className="text-slate-200">{selectedClosedTrade.angel_order_id || 'PAPER_SIMULATED'}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notes & Strategy if present */}
+                  {selectedClosedTrade.notes && (
+                    <div className="p-3.5 rounded-xl bg-slate-900/40 border border-slate-800 text-xs">
+                      <span className="text-slate-400 font-mono block text-[11px] mb-1">Execution Strategy & Notes:</span>
+                      <p className="text-slate-300 leading-relaxed font-mono">{selectedClosedTrade.notes}</p>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+
+            {/* Modal Actions */}
+            <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+              <button
+                onClick={() => {
+                  if (window.confirm(`Delete closed trade record for ${selectedClosedTrade.contract_name}?`)) {
+                    handleDeleteTrade(selectedClosedTrade.id);
+                    setSelectedClosedTrade(null);
+                  }
+                }}
+                className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/30 text-xs font-bold transition shadow-sm"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete Trade Record</span>
+              </button>
+
+              <button
+                onClick={() => setSelectedClosedTrade(null)}
+                className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition border border-slate-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
