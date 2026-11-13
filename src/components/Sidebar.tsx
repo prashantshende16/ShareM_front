@@ -9,7 +9,8 @@ import {
   ListOrdered,
   Settings as SettingsIcon,
   AlertTriangle,
-  ExternalLink
+  ExternalLink,
+  Sliders
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
@@ -25,6 +26,7 @@ export const Sidebar: React.FC = () => {
 
   const navItems = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/trade', label: 'Manual Trading', icon: Sliders, badge: 'New' },
     { to: '/surge-radar', label: 'Surge Radar', icon: Zap, badge: hotCount > 0 ? `${hotCount} Hot` : undefined },
     { to: '/new', label: 'New Analysis', icon: PlusCircle },
     { to: '/history', label: 'Analysis History', icon: History },

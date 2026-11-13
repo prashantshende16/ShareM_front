@@ -586,4 +586,43 @@ export interface OneClickBatchResponse {
   }>;
 }
 
+export interface OptionContractSearchResult {
+  id: string;
+  symbol: string;
+  contract_name: string;
+  tradingsymbol: string;
+  symboltoken: string;
+  exchange: string;
+  tag: string;
+  strike_price: number;
+  option_type: 'CE' | 'PE';
+  expiry: string;
+  raw_expiry: string;
+  lot_size: number;
+  ltp: number;
+  change: number;
+  change_pct: number;
+  capital_1_lot: number;
+  dte: number;
+  spot_cmp?: number;
+}
+
+export interface ContractQuoteData {
+  symbol: string;
+  strike: number;
+  option_type: 'CE' | 'PE';
+  expiry?: string;
+  tradingsymbol?: string;
+  symboltoken?: string;
+  exchange: string;
+  tag: string;
+  lot_size: number;
+  ltp: number;
+  change: number;
+  change_pct: number;
+  capital_1_lot: number;
+  spot_cmp?: number;
+  updated_at?: string;
+}
+
 

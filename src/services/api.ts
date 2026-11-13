@@ -397,6 +397,44 @@ export const api = {
     return res.json();
   },
 
+  async searchOptionContracts(query: string, optionType?: string, limit: number = 40): Promise<{
+    status: string;
+    query: string;
+    count: number;
+    contracts: import('../types').OptionContractSearchResult[];
+  }> {
+    const params = new URLSearchParams({ query });
+    if (optionType && optionType !== 'ALL') params.append('option_type', optionType);
+    if (limit) params.append('limit', limit.toString());
+    const res = await fetch(`${API_BASE}/trades/search-options?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to search option contracts');
+    return res.json();
+  },
+
+  async getContractQuote(params: {
+    symbol: string;
+    strike: number;
+    option_type: string;
+    expiry?: string;
+    tradingsymbol?: string;
+    symboltoken?: string;
+    exchange?: string;
+  }): Promise<{ status: string; data: import('../types').ContractQuoteData }> {
+    const qs = new URLSearchParams({
+      symbol: params.symbol,
+      strike: params.strike.toString(),
+      option_type: params.option_type,
+    });
+    if (params.expiry) qs.append('expiry', params.expiry);
+    if (params.tradingsymbol) qs.append('tradingsymbol', params.tradingsymbol);
+    if (params.symboltoken) qs.append('symboltoken', params.symboltoken);
+    if (params.exchange) qs.append('exchange', params.exchange);
+
+    const res = await fetch(`${API_BASE}/trades/contract-quote?${qs.toString()}`);
+    if (!res.ok) throw new Error('Failed to fetch contract quote');
+    return res.json();
+  },
+
   async getTrades(status?: string): Promise<import('../types').TradePosition[]> {
     let url = `${API_BASE}/trades`;
     if (status) url += `?status=${encodeURIComponent(status)}`;

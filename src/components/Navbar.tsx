@@ -206,6 +206,15 @@ export const Navbar: React.FC = () => {
         </div>
 
         <Link
+          to="/trade"
+          className="flex items-center space-x-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold px-3.5 py-2 rounded-lg transition-all shadow-md shadow-emerald-600/20 text-xs sm:text-sm active:scale-95"
+          title="Manual Option Trading & Strike Search Terminal"
+        >
+          <Zap className="w-4 h-4" />
+          <span>Manual Trade</span>
+        </Link>
+
+        <Link
           to="/new"
           className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg transition-all shadow-md shadow-blue-600/20 text-sm active:scale-95"
         >
