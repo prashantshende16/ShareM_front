@@ -175,6 +175,17 @@ export const SurgeRadarPage: React.FC = () => {
               <span className="px-2.5 py-1 rounded-lg text-xs font-black bg-gradient-to-r from-amber-500/20 to-rose-500/20 text-amber-300 border border-amber-500/40 shadow-sm animate-pulse">
                 {sugg.surge_badge}
               </span>
+              {sugg.status_label && (
+                <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
+                  sugg.live_status === 'TARGET_2_HIT' || sugg.live_status === 'TARGET_1_HIT'
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    : sugg.live_status === 'STOP_LOSS_HIT'
+                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                    : 'bg-sky-500/10 text-sky-300 border-sky-500/30'
+                }`}>
+                  {sugg.status_label}
+                </span>
+              )}
               <span className="text-[10px] font-mono text-slate-400 flex items-center space-x-1">
                 <Clock className="w-3 h-3 text-slate-500" />
                 <span>{sugg.detected_at}</span>
@@ -236,7 +247,11 @@ export const SurgeRadarPage: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-400 block font-mono">Live LTP</span>
-                    <span className="text-xs font-bold text-sky-300">₹{sugg.current_ltp}</span>
+                    <span className={`text-xs font-bold ${
+                      Number(sugg.current_ltp) >= Number(sugg.entry_price) ? 'text-emerald-400' : 'text-rose-400'
+                    }`}>
+                      ₹{sugg.current_ltp}
+                    </span>
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-400 block font-mono">Buy At (Entry)</span>
@@ -246,6 +261,14 @@ export const SurgeRadarPage: React.FC = () => {
                 <div className="text-[11px] font-mono text-slate-300 text-center">
                   1 Lot = ₹{sugg.entry_price} × {qty} Qty = <strong className="text-amber-300">{money(capital)}</strong>
                 </div>
+                {sugg.current_pnl !== undefined && (
+                  <div className="text-[11px] font-mono text-center pt-1 border-t border-slate-800/60 flex items-center justify-center space-x-2">
+                    <span className="text-slate-400">P&L vs Entry:</span>
+                    <span className={`font-bold ${sugg.current_pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {sugg.current_pnl >= 0 ? '+' : ''}₹{Number(sugg.current_pnl).toLocaleString('en-IN')} ({sugg.current_pnl_pct}%)
+                    </span>
+                  </div>
+                )}
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div>
                     <span className="text-[10px] text-rose-400 block font-mono">Max Risk (SL)</span>
